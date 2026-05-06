@@ -1,10 +1,65 @@
 import 'package:flutter/material.dart';
-import '../../widgets/primary_button.dart';
+import '../../widgets/sos_button.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../services/sos_service.dart';
+import '../../routes/app_routes.dart';
 
-class SosPage extends StatelessWidget {
+class SosPage extends StatefulWidget {
   const SosPage({super.key});
+
+  @override
+  State<SosPage> createState() => _SosPageState();
+}
+
+class _SosPageState extends State<SosPage> {
+  final SosService _sosService = SosService();
+  bool _isLoading = false;
+  String? _lastError;
+
+  Future<void> _onSosTriggered() async {
+    setState(() {
+      _isLoading = true;
+      _lastError = null;
+    });
+
+    try {
+      final contacts = _sosService.getEmergencyContacts();
+      await _sosService.triggerSos(
+        emergencyContacts: contacts,
+        locationDescription: '当前未知位置',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('求助已发送，紧急联系人已收到通知'),
+            backgroundColor: Color(0xFF4CAF50),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _lastError = '求助发送失败，请重试';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_lastError!),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,30 +67,45 @@ class SosPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('紧急求助'),
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: () {
+              Navigator.pushNamed(context, AppRoutes.sosHistory);
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             const SizedBox(height: 20),
-
-            const Text(
-              '长按按钮启动求助',
+            Text(
+              _isLoading ? '求助发送中...' : '长按按钮启动求助',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.black54,
+                color: _isLoading ? const Color(0xFFFF6B6B) : Colors.black54,
               ),
             ),
-
             const SizedBox(height: 30),
-
-            PrimaryButton(
-              text: '长按求助',
+            SosButton(
               size: 160,
-              onPressed: () {},
+              onTriggered: _onSosTriggered,
             ),
-
             const SizedBox(height: 30),
-
+            if (_lastError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  _lastError!,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -60,7 +130,6 @@ class SosPage extends StatelessWidget {
                 ),
               ),
             ),
-
             const AppBottomNav(currentIndex: 1),
           ],
         ),

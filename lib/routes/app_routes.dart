@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-// 页面导入（先写占位，后面再建文件）
 import '../pages/home/home_page.dart';
 import '../pages/sos/sos_page.dart';
+import '../pages/sos/sos_history_page.dart';
 import '../pages/escort/escort_page.dart';
 import '../pages/escort/progress_page.dart';
 import '../pages/common/success_page.dart';
@@ -13,6 +13,7 @@ import '../pages/profile/profile_page.dart';
 class AppRoutes {
   static const String home = '/';
   static const String sos = '/sos';
+  static const String sosHistory = '/sos_history';
   static const String escort = '/escort';
   static const String escortProgress = '/escort_progress';
   static const String success = '/success';
@@ -23,6 +24,7 @@ class AppRoutes {
   static final routes = <String, WidgetBuilder>{
     home: (context) => const HomePage(),
     sos: (context) => const SosPage(),
+    sosHistory: (context) => const SosHistoryPage(),
     escort: (context) => const EscortPage(),
     escortProgress: (context) => const ProgressPage(),
     success: (context) => const SuccessPage(),
