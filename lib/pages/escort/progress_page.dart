@@ -49,8 +49,8 @@ class ProgressPage extends StatelessWidget {
                       height: 90,
                       child: Column(
                         children: [
-                          Row(
-                            children: const [
+                          const Row(
+                            children: [
                               Icon(Icons.circle, size: 8),
                               SizedBox(width: 8),
                               Text('我的当前位置'),
@@ -64,8 +64,8 @@ class ProgressPage extends StatelessWidget {
                             margin: const EdgeInsets.only(left: 4),
                           ),
                           const SizedBox(height: 6),
-                          Row(
-                            children: const [
+                          const Row(
+                            children: [
                               Icon(Icons.location_on, size: 14),
                               SizedBox(width: 8),
                               Text('静安区地铁站A口'),

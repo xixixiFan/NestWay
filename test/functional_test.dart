@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:solotrip/app/app.dart';
-import 'package:solotrip/routes/app_routes.dart';
 
 void main() {
   group('Functional Tests - App Navigation', () {

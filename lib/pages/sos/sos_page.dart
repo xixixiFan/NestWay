@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/sos_button.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/video_player_dialog.dart';
 import '../../services/sos_service.dart';
 import '../../routes/app_routes.dart';
 
@@ -61,6 +62,10 @@ class _SosPageState extends State<SosPage> {
     }
   }
 
+  void _playAttentionVideo() {
+    VideoPlayerDialog.show(context, 'attention_video.mp4');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,18 +115,19 @@ class _SosPageState extends State<SosPage> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ListView(
-                  children: const [
+                  children: [
                     RiskCard(
-                      color: Color(0xFFDFF5E3),
+                      color: const Color(0xFFDFF5E3),
                       title: '轻度不安',
                       desc: '播放模拟通话/视频，制造"有人在联系我"的氛围',
+                      onTap: _playAttentionVideo,
                     ),
-                    RiskCard(
+                    const RiskCard(
                       color: Color(0xFFFFF4D6),
                       title: '中度风险',
                       desc: '实时位置共享给紧急联系人',
                     ),
-                    RiskCard(
+                    const RiskCard(
                       color: Color(0xFFFFE0E0),
                       title: '紧急危险',
                       desc: '尝试拨打报警电话，并发送位置信息',

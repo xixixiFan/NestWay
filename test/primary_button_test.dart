@@ -86,7 +86,7 @@ void main() {
 
     testWidgets('PrimaryButton should work with null onPressed', (WidgetTester tester) async {
       await tester.pumpWidget(
-        MaterialApp(
+        const MaterialApp(
           home: Scaffold(
             body: Center(
               child: PrimaryButton(

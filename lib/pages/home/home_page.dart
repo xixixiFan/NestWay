@@ -15,9 +15,9 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 40),
 
             // Logo + 城市
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 Padding(
                   padding: EdgeInsets.only(left: 20),
                   child: Text(

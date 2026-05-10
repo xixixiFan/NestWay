@@ -45,10 +45,10 @@ class AppBottomNav extends StatelessWidget {
           // SOS
           GestureDetector(
             onTap: () => _navigate(context, 1),
-            child: CircleAvatar(
+            child: const CircleAvatar(
               radius: 25,
-              backgroundColor: const Color(0xFFFFE066),
-              child: const Text('SOS'),
+              backgroundColor: Color(0xFFFFE066),
+              child: Text('SOS'),
             ),
           ),
 

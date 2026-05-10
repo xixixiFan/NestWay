@@ -96,8 +96,8 @@ class ProfilePage extends StatelessWidget {
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 4),
-              Row(
-                children: const [
+              const Row(
+                children: [
                   Icon(Icons.circle, size: 8, color: Colors.green),
                   SizedBox(width: 4),
                   Text("账号已验证", style: TextStyle(fontSize: 12)),
@@ -155,8 +155,8 @@ class ProfilePage extends StatelessWidget {
       decoration: _cardStyle(),
       child: Column(
         children: [
-          Row(
-            children: const [
+          const Row(
+            children: [
               Text("紧急联系人"),
               Spacer(),
               Text("管理", style: TextStyle(color: Colors.grey)),
@@ -165,7 +165,7 @@ class ProfilePage extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          ...contacts.map((c) => _buildContactItem(c)).toList(),
+          ...contacts.map((c) => _buildContactItem(c)),
 
           const SizedBox(height: 12),
 
