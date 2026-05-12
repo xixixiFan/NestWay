@@ -15,13 +15,14 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
   bool _isLoading = false;
   String? _errorMessage;
 
-  static const String apiKey = String.fromEnvironment('DASHSCOPE_API_KEY', defaultValue: '');
-  final String apiUrl = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation';
+  // ⚠️ 从环境变量读取 API Key，硬编码不留痕迹
+  static const String apiKey = String.fromEnvironment('DEEPSEEK_API_KEY', defaultValue: '');
+  final String apiUrl = 'https://api.deepseek.com/v1/chat/completions';
 
   Future<void> _fetchSafetyReport(String city) async {
     if (apiKey.isEmpty) {
       setState(() {
-        _errorMessage = '请配置 API Key，运行命令：flutter run --dart-define=DASHSCOPE_API_KEY=你的密钥';
+        _errorMessage = '请配置 API Key，运行命令：flutter run --dart-define=DEEPSEEK_API_KEY=你的密钥';
         _isLoading = false;
       });
       return;
@@ -34,7 +35,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
     });
 
     const systemPrompt = '''
-你是女性旅行安全专家。用户将输入一个城市名，请联网搜索该城市最新的女性独自旅行安全信息，并严格按照以下JSON格式返回，不要返回任何其他内容：
+你是女性旅行安全专家。用户将输入一个城市名，请生成该城市最新的女性独自旅行安全信息，并严格按照以下JSON格式返回，不要返回任何其他内容：
 {
   "safety_score": 0-100的整数,
   "risk_level": "低",
@@ -44,22 +45,19 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
   "police_phone": "报警电话",
   "ambulance_phone": "急救电话",
   "women_review_summary": "女性旅行者评价摘要"
-}''';
+}
+注意：请根据你的知识给出合理数据，无需联网搜索。
+''';
 
     final requestBody = {
-      "model": "qwen-plus",
-      "input": {
-        "messages": [
-          {"role": "system", "content": systemPrompt},
-          {"role": "user", "content": "$city市"}
-        ]
-      },
-      "parameters": {
-        "result_format": "message",
-        "enable_search": true,
-        "temperature": 0.1,
-        "max_tokens": 2000
-      }
+      "model": "deepseek-chat",
+      "messages": [
+        {"role": "system", "content": systemPrompt},
+        {"role": "user", "content": "$city市"}
+      ],
+      "temperature": 0.1,
+      "max_tokens": 2000,
+      "response_format": {"type": "json_object"}
     };
 
     try {
@@ -74,7 +72,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> result = jsonDecode(response.body);
-        final modelOutput = result['output']['choices'][0]['message']['content'];
+        final modelOutput = result['choices'][0]['message']['content'];
         final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(modelOutput);
         if (jsonMatch == null) throw Exception('未找到JSON');
         final safetyReport = jsonDecode(jsonMatch.group(0)!);
