@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/video_player_dialog.dart';
+import '../../widgets/call_simulate_dialog.dart';
 import '../../services/sos_service.dart';
 import '../../routes/app_routes.dart';
 
@@ -16,6 +19,10 @@ class _SosPageState extends State<SosPage> {
   final SosService _sosService = SosService();
   bool _isLoading = false;
   String? _lastError;
+  Timer? _longPressTimer;
+  double _pressProgress = 0;
+  bool _isLongPressing = false;
+  static const _longPressDuration = Duration(seconds: 3);
 
   Future<void> _onSosTriggered() async {
     setState(() {
@@ -62,7 +69,116 @@ class _SosPageState extends State<SosPage> {
   }
 
   void _playAttentionVideo() {
-    VideoPlayerDialog.show(context, 'attention_video.mp4');
+    CallSimulateDialog.show(context);
+  }
+
+  void _startLongPress() {
+    setState(() {
+      _isLongPressing = true;
+      _pressProgress = 0;
+    });
+
+    final startTime = DateTime.now();
+    _longPressTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      final elapsed = DateTime.now().difference(startTime);
+      final progress =
+          elapsed.inMilliseconds / _longPressDuration.inMilliseconds;
+
+      setState(() {
+        _pressProgress = progress.clamp(0.0, 1.0);
+      });
+
+      if (progress >= 1.0) {
+        timer.cancel();
+        _longPressTimer = null;
+        _onLongPressComplete();
+      }
+    });
+  }
+
+  void _cancelLongPress() {
+    _longPressTimer?.cancel();
+    _longPressTimer = null;
+    setState(() {
+      _isLongPressing = false;
+      _pressProgress = 0;
+    });
+  }
+
+  void _onLongPressComplete() {
+    setState(() {
+      _isLongPressing = false;
+      _pressProgress = 0;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('确认拨打110'),
+          content: const Text('您确定要拨打110报警电话吗？请在拨号盘确认后再正式拨打。'),
+          actions: [
+            TextButton(
+              child: const Text('取消'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('确认拨打'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _dial110();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _dial110() async {
+    try {
+      const url = 'tel:110';
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      } else {
+        const MethodChannel channel = MethodChannel('com.nestway/phone');
+        await channel.invokeMethod('makePhoneCall', {'phoneNumber': '110'});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('无法拨打电话，请手动拨打110'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool> canLaunchUrl(Uri url) async {
+    try {
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> launchUrl(Uri url) async {
+    await launchUrlString(url.toString());
+  }
+
+  Future<void> launchUrlString(String url) async {
+    const MethodChannel channel = MethodChannel('com.nestway/phone');
+    await channel.invokeMethod('openDialer', {'phoneNumber': '110'});
   }
 
   @override
@@ -72,7 +188,11 @@ class _SosPageState extends State<SosPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 16),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.home,
+              (route) => false,
+            );
           },
         ),
         title: const Align(
@@ -118,17 +238,59 @@ class _SosPageState extends State<SosPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    RiskCard(
-                      color: const Color(0xFFFF6B6B),
-                      title: '紧急报警',
-                      desc: '调起拨号盘 110',
-                      icon: Icons.phone,
+                    GestureDetector(
+                      onLongPressStart: (_) => _startLongPress(),
+                      onLongPressEnd: (_) => _cancelLongPress(),
+                      onLongPressCancel: _cancelLongPress,
+                      child: Stack(
+                        children: [
+                          RiskCard(
+                            color: const Color(0xFFFF6B6B),
+                            title: '紧急报警',
+                            desc: '长按3秒调起拨号盘 110',
+                            icon: Icons.phone,
+                          ),
+                          if (_isLongPressing)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        value: _pressProgress,
+                                        strokeWidth: 4,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${(_pressProgress * 100).toInt()}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                     RiskCard(
                       color: const Color(0xFFFFD93D),
                       title: '共享位置给联系人',
                       desc: '发送位置 + 求助消息',
                       icon: Icons.location_on,
+                      onTap: () {
+                        Navigator.pushNamed(context, AppRoutes.sendSosMessage);
+                      },
                     ),
                     RiskCard(
                       color: const Color(0xFF4A90D9),
@@ -148,7 +310,11 @@ class _SosPageState extends State<SosPage> {
                   children: [
                     InkWell(
                       onTap: () {
-                        Navigator.pop(context);
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.home,
+                          (route) => false,
+                        );
                       },
                       borderRadius: BorderRadius.circular(48),
                       child: Container(
@@ -180,7 +346,11 @@ class _SosPageState extends State<SosPage> {
                     const SizedBox(width: 16),
                     InkWell(
                       onTap: () {
-                        Navigator.pop(context);
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.home,
+                          (route) => false,
+                        );
                       },
                       borderRadius: BorderRadius.circular(48),
                       child: Container(
