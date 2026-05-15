@@ -5,6 +5,7 @@ class RiskCard extends StatelessWidget {
   final String title;
   final String desc;
   final VoidCallback? onTap;
+  final IconData? icon;
 
   const RiskCard({
     super.key,
@@ -12,65 +13,77 @@ class RiskCard extends StatelessWidget {
     required this.title,
     required this.desc,
     this.onTap,
+    this.icon,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(110),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 16),
+        width: 220,
+        height: 220,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border(
-            left: BorderSide(
-              color: color,
-              width: 6,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
+          ],
+          border: Border.all(
+            color: color,
+            width: 4,
           ),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 10,
-              height: 10,
+              width: 70,
+              height: 70,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    desc,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
+              child: Center(
+                child: icon != null
+                    ? Icon(
+                        icon,
+                        size: 36,
+                        color: Colors.white,
+                      )
+                    : const Icon(
+                        Icons.circle,
+                        size: 36,
+                        color: Colors.white,
+                      ),
               ),
             ),
-            if (onTap != null)
-              const Icon(
-                Icons.play_circle_outline,
-                color: Color(0xFF4CAF50),
-                size: 24,
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                desc,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.black54,
+                ),
+              ),
+            ),
           ],
         ),
       ),

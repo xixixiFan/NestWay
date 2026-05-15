@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../widgets/sos_button.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/video_player_dialog.dart';
@@ -70,10 +69,26 @@ class _SosPageState extends State<SosPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('紧急求助'),
-        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 16),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'SOS',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        centerTitle: false,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        titleSpacing: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.history),
@@ -84,60 +99,122 @@ class _SosPageState extends State<SosPage> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-            Text(
-              _isLoading ? '求助发送中...' : '长按按钮启动求助',
-              style: TextStyle(
-                fontSize: 16,
-                color: _isLoading ? const Color(0xFFFF6B6B) : Colors.black54,
-              ),
-            ),
-            const SizedBox(height: 30),
-            SosButton(
-              size: 160,
-              onTriggered: _onSosTriggered,
-            ),
-            const SizedBox(height: 30),
-            if (_lastError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Text(
-                  _lastError!,
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontSize: 14,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              if (_lastError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    _lastError!,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-              ),
-            Expanded(
-              child: Padding(
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ListView(
+                child: Column(
                   children: [
                     RiskCard(
-                      color: const Color(0xFFDFF5E3),
-                      title: '轻度不安',
-                      desc: '播放模拟通话/视频，制造"有人在联系我"的氛围',
+                      color: const Color(0xFFFF6B6B),
+                      title: '紧急报警',
+                      desc: '调起拨号盘 110',
+                      icon: Icons.phone,
+                    ),
+                    RiskCard(
+                      color: const Color(0xFFFFD93D),
+                      title: '共享位置给联系人',
+                      desc: '发送位置 + 求助消息',
+                      icon: Icons.location_on,
+                    ),
+                    RiskCard(
+                      color: const Color(0xFF4A90D9),
+                      title: '播放安全视频',
+                      desc: '播放视频/模拟通话',
+                      icon: Icons.play_circle,
                       onTap: _playAttentionVideo,
-                    ),
-                    const RiskCard(
-                      color: Color(0xFFFFF4D6),
-                      title: '中度风险',
-                      desc: '实时位置共享给紧急联系人',
-                    ),
-                    const RiskCard(
-                      color: Color(0xFFFFE0E0),
-                      title: '紧急危险',
-                      desc: '尝试拨打报警电话，并发送位置信息',
                     ),
                   ],
                 ),
               ),
-            ),
-            const AppBottomNav(currentIndex: 1),
-          ],
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(48),
+                      child: Container(
+                        width: 156,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFFFF),
+                          borderRadius: BorderRadius.circular(48),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '取消',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                      },
+                      borderRadius: BorderRadius.circular(48),
+                      child: Container(
+                        width: 156,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF9C4),
+                          borderRadius: BorderRadius.circular(48),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            '我很安全',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );

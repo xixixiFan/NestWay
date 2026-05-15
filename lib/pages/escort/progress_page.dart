@@ -141,8 +141,8 @@ class ProgressPage extends StatelessWidget {
                         children: [
                           const CircleAvatar(
                             radius: 24,
-                            backgroundImage:
-                                NetworkImage('https://i.pravatar.cc/150?img=3'),
+                            backgroundColor: Colors.pinkAccent,
+                            child: Icon(Icons.person, color: Colors.white, size: 28),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
