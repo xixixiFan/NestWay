@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../mock/mock_user.dart';
 import '../../routes/app_routes.dart';
+import '../../services/auth_provider.dart';
 import '../../services/contacts_provider.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -13,17 +13,14 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late String _userName;
-  late List<Map<dynamic, dynamic>> _contacts;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _userName = mockUser['name'] as String? ?? '用户';
-    _contacts = List<Map<dynamic, dynamic>>.from(
-      mockContacts.map((c) => Map<dynamic, dynamic>.from(c))
-    );
+    final user = context.read<AuthProvider>().currentUser;
+    _userName = user?['name'] as String? ?? '用户';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ContactsProvider>().loadContacts();
     });
@@ -123,15 +120,9 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _deleteContact(int index) {
-    setState(() {
-      _contacts.removeAt(index);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = mockUser;
+    final user = context.watch<AuthProvider>().currentUser ?? {};
     final avatarUrl = user['avatar_url'] as String? ?? '';
 
     return Scaffold(
@@ -173,7 +164,17 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 16),
                     _buildContactsCard(),
                     const SizedBox(height: 16),
-                    const Text("退出当前账号", style: TextStyle(color: Colors.red)),
+                    GestureDetector(
+                      onTap: () {
+                        context.read<AuthProvider>().logout();
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.login,
+                          (route) => false,
+                        );
+                      },
+                      child: const Text("退出当前账号", style: TextStyle(color: Colors.red)),
+                    ),
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -225,7 +226,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildGuardCard(Map user) {
-    final days = calculateDays(user["created_at"]);
+    final days = calculateDays(user["created_at"] as String? ?? '2024-01-01T00:00:00Z');
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),

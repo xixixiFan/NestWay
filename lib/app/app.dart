@@ -18,7 +18,7 @@ class NestWayApp extends StatelessWidget {
         foregroundColor: Colors.black,
       ),
       ),
-      initialRoute: AppRoutes.home,
+      initialRoute: AppRoutes.login,
       routes: AppRoutes.routes,
     );
   }

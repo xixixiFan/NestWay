@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../data/demo_users.dart';
+import '../../services/auth_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -110,8 +113,15 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  void _loginAsDemo(int userId) {
+    context.read<AuthProvider>().loginAsDemoUser(userId);
+    Navigator.pushNamedAndRemoveUntil(context, '/sos', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final demoUserList = demoUsers;
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -137,7 +147,7 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 60),
-              
+
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -213,6 +223,64 @@ class _LoginPageState extends State<LoginPage> {
                   },
                   child: const Text('重新获取验证码'),
                 ),
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 16),
+              const Text(
+                '演示模式（跳过短信验证）',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: demoUserList.map((user) {
+                    final name = user['name'] as String? ?? '';
+                    final phone = user['phone'] as String? ?? '';
+                    final userId = user['id'] as int? ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: GestureDetector(
+                        onTap: () => _loginAsDemo(userId),
+                        child: Container(
+                          width: 110,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFFE066)),
+                          ),
+                          child: Column(
+                            children: [
+                              const CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Color(0xFFFFF9C4),
+                                child: Icon(Icons.person, color: Colors.black54, size: 28),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                name,
+                                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                phone,
+                                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                '点击登录',
+                                style: TextStyle(fontSize: 10, color: Color(0xFFFFE066)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             ],
           ),
         ),
