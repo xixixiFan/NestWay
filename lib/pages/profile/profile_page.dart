@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../mock/mock_user.dart';
-import '../../mock/mock_contacts.dart';
+import '../../routes/app_routes.dart';
+import '../../services/contacts_provider.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,20 +13,16 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late String _userName;
-  late List<Map<dynamic, dynamic>> _contacts;
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    // 修正：显式转换为 String
     _userName = mockUser['name'] as String? ?? '用户';
-    // 确保类型匹配
-    _contacts = List<Map<dynamic, dynamic>>.from(
-      mockContacts.map((c) => Map<dynamic, dynamic>.from(c))
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ContactsProvider>().loadContacts();
+    });
   }
 
   int calculateDays(String createdAt) {
@@ -66,10 +64,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showAddContactDialog() {
+  Future<void> _showAddContactDialog() async {
     _nameController.clear();
     _phoneController.clear();
-    showDialog(
+    
+    await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('添加紧急联系人'),
@@ -93,27 +92,31 @@ class _ProfilePageState extends State<ProfilePage> {
             child: const Text('取消'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               final name = _nameController.text.trim();
               final phone = _phoneController.text.trim();
               if (name.isNotEmpty && phone.isNotEmpty) {
-                setState(() {
-                  _contacts.add({'name': name, 'phone': phone});
-                });
+                final provider = context.read<ContactsProvider>();
+                final success = await provider.addContact(
+                  name: name,
+                  phone: phone,
+                );
+                
+                if (success && mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('添加成功'), backgroundColor: Colors.green),
+                  );
+                }
+              } else {
+                Navigator.pop(context);
               }
-              Navigator.pop(context);
             },
             child: const Text('添加'),
           ),
         ],
       ),
     );
-  }
-
-  void _deleteContact(int index) {
-    setState(() {
-      _contacts.removeAt(index);
-    });
   }
 
   @override
@@ -123,6 +126,32 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFEDE7F6),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, size: 16),
+          onPressed: () {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.home,
+              (route) => false,
+            );
+          },
+        ),
+        title: const Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '我的',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ),
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        titleSpacing: 0,
+      ),
       body: SafeArea(
         child: Column(
           children: [
@@ -130,8 +159,6 @@ class _ProfilePageState extends State<ProfilePage> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    const SizedBox(height: 10),
-                    const Text("我的", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     _buildUserCard(avatarUrl),
                     const SizedBox(height: 16),
@@ -216,45 +243,67 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildContactsCard() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: _cardStyle(),
-      child: Column(
-        children: [
-          Row(
-            children: const [Text("紧急联系人"), Spacer(), Text("管理", style: TextStyle(color: Colors.grey))],
-          ),
-          const SizedBox(height: 12),
-          ..._contacts.asMap().entries.map((entry) {
-            final idx = entry.key;
-            final contact = entry.value;
-            return _buildContactItem(contact, idx);
-          }).toList(),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: _showAddContactDialog,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(20),
+    return Consumer<ContactsProvider>(
+      builder: (context, provider, child) {
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: _cardStyle(),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Text("紧急联系人"),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRoutes.emergencyContacts);
+                    },
+                    child: const Text("管理", style: TextStyle(color: Colors.grey)),
+                  ),
+                ],
               ),
-              child: const Center(child: Text("+ 添加联系人")),
-            ),
+              const SizedBox(height: 12),
+              if (provider.isLoading)
+                const Center(child: CircularProgressIndicator())
+              else ...provider.contacts.asMap().entries.map((entry) {
+                final idx = entry.key;
+                final contact = entry.value;
+                return _buildContactItem(contact, idx);
+              }).toList(),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: _showAddContactDialog,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Center(child: Text("+ 添加联系人")),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildContactItem(Map<dynamic, dynamic> contact, int index) {
+  Widget _buildContactItem(Map<String, dynamic> contact, int index) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 16)),
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: Colors.blue[100],
+            child: Text(
+              contact['name'].toString().substring(0, 1),
+              style: TextStyle(color: Colors.blue[800]),
+            ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -267,7 +316,14 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           IconButton(
             icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-            onPressed: () => _deleteContact(index),
+            onPressed: () async {
+              final success = await context.read<ContactsProvider>().deleteContact(contact['id'] as int);
+              if (success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('删除成功'), backgroundColor: Colors.green),
+                );
+              }
+            },
           ),
         ],
       ),

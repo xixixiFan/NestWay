@@ -76,14 +76,23 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _completeRegistration() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final response = await Supabase.instance.client
-            .from('users')
-            .select()
-            .eq('phone', user.phone)
-            .single();
+      if (user != null && user.phone != null) {
+        try {
+          final response = await Supabase.instance.client
+              .from('users')
+              .select()
+              .eq('phone', user.phone!)
+              .single();
 
-        if (response.data == null) {
+          if (response == null) {
+            await Supabase.instance.client.from('users').insert({
+              'id': int.parse(user.id),
+              'name': _nameController.text.isNotEmpty ? _nameController.text : '用户',
+              'phone': user.phone,
+              'is_verified': true,
+            });
+          }
+        } catch (_) {
           await Supabase.instance.client.from('users').insert({
             'id': int.parse(user.id),
             'name': _nameController.text.isNotEmpty ? _nameController.text : '用户',

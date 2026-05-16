@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../widgets/risk_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/video_player_dialog.dart';
 import '../../widgets/call_simulate_dialog.dart';
 import '../../services/sos_service.dart';
+import '../../services/contacts_provider.dart';
 import '../../routes/app_routes.dart';
 
 class SosPage extends StatefulWidget {
@@ -31,9 +33,10 @@ class _SosPageState extends State<SosPage> {
     });
 
     try {
-      final contacts = await _sosService.getEmergencyContacts();
+      final provider = context.read<ContactsProvider>();
+      await provider.loadContacts();
       await _sosService.triggerSos(
-        emergencyContacts: contacts,
+        emergencyContacts: provider.contacts,
         locationDescription: '当前未知位置',
       );
 

@@ -44,7 +44,9 @@ class SosService {
     double? longitude,
   }) async {
     try {
-      final response = await SupabaseService.instance
+      print('🔧 上报 SOS 事件: type=$type, location=$locationDescription');
+      
+      await SupabaseService.instance
           .from('sos_logs')
           .insert({
         'type': type,
@@ -53,8 +55,11 @@ class SosService {
         'longitude': longitude,
       });
 
-      return response.error == null;
-    } catch (e) {
+      print('✅ SOS 事件上报成功!');
+      return true;
+    } catch (e, stackTrace) {
+      print('❌ 上报失败: $e');
+      print('❌ Stack trace: $stackTrace');
       return false;
     }
   }
@@ -70,35 +75,115 @@ class SosService {
 
   Future<List<Map<String, dynamic>>> getSosHistory() async {
     try {
+      print('🔧 获取 SOS 历史...');
+      
       final response = await SupabaseService.instance
           .from('sos_logs')
           .select()
           .order('triggered_at', ascending: false);
 
-      if (response.error != null) {
-        throw Exception(response.error!.message);
-      }
-
-      return List<Map<String, dynamic>>.from(response.data ?? []);
-    } catch (e) {
+      print('✅ 成功获取 ${response.length} 条 SOS 记录');
+      return List<Map<String, dynamic>>.from(response ?? []);
+    } catch (e, stackTrace) {
+      print('❌ 获取 SOS 历史失败: $e');
+      print('❌ Stack trace: $stackTrace');
       return [];
     }
   }
 
   Future<List<Map<String, dynamic>>> getEmergencyContacts() async {
     try {
+      print('🔧 获取紧急联系人...');
+      
       final response = await SupabaseService.instance
           .from('emergency_contacts')
           .select()
           .order('sort_order');
 
-      if (response.error != null) {
-        throw Exception(response.error!.message);
-      }
-
-      return List<Map<String, dynamic>>.from(response.data ?? []);
-    } catch (e) {
+      print('✅ 成功获取 ${response.length} 个紧急联系人');
+      return List<Map<String, dynamic>>.from(response ?? []);
+    } catch (e, stackTrace) {
+      print('❌ 获取紧急联系人失败: $e');
+      print('❌ Stack trace: $stackTrace');
       return [];
+    }
+  }
+
+  Future<bool> addEmergencyContact({
+    required String name,
+    required String phone,
+  }) async {
+    try {
+      print('🔧 正在添加联系人: name=$name, phone=$phone');
+      
+      // 获取当前最大排序号
+      final contacts = await getEmergencyContacts();
+      final maxSortOrder = contacts.isNotEmpty 
+          ? contacts.map((c) => c['sort_order'] as int).reduce((a, b) => a > b ? a : b) 
+          : 0;
+      final newSortOrder = maxSortOrder + 1;
+      
+      // 使用默认用户 ID（开发阶段）
+      const defaultUserId = 1;
+      
+      await SupabaseService.instance
+          .from('emergency_contacts')
+          .insert({
+        'user_id': defaultUserId,
+        'name': name,
+        'phone': phone,
+        'sort_order': newSortOrder,
+      });
+
+      print('✅ 联系人添加成功! user_id=$defaultUserId, sort_order=$newSortOrder');
+      return true;
+    } catch (e, stackTrace) {
+      print('❌ 添加失败: $e');
+      print('❌ Stack trace: $stackTrace');
+      return false;
+    }
+  }
+
+  Future<bool> updateEmergencyContact({
+    required int id,
+    required String name,
+    required String phone,
+  }) async {
+    try {
+      print('🔧 更新联系人: id=$id, name=$name, phone=$phone');
+      
+      await SupabaseService.instance
+          .from('emergency_contacts')
+          .update({
+        'name': name,
+        'phone': phone,
+      })
+          .eq('id', id);
+
+      print('✅ 联系人更新成功!');
+      return true;
+    } catch (e, stackTrace) {
+      print('❌ 更新失败: $e');
+      print('❌ Stack trace: $stackTrace');
+      return false;
+    }
+  }
+
+  Future<bool> deleteEmergencyContact(int id) async {
+    try {
+      print('🔧 删除联系人: id=$id');
+      
+      await SupabaseService.instance
+          .from('emergency_contacts')
+          .delete()
+          .eq('id', id);
+
+      print('✅ 联系人删除成功!');
+      return true;
+    } catch (e, stackTrace) {
+      print('❌ 删除失败: $e');
+      print('❌ Stack trace: $stackTrace');
+      return false;
     }
   }
 
