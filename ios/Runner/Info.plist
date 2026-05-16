@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>栖途需要获取你的位置，用于虚拟护送功能，记录你的行程并在紧急情况下分享位置给紧急联系人。</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>栖途需要持续获取你的位置，用于虚拟护送功能，即使在后台运行也能保护你的安全。</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>栖途需要在后台持续获取你的位置，用于虚拟护送功能，保护你的出行安全。</string>
 </dict>
 </plist>

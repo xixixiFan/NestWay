@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
 import '../../mock/mock_contacts.dart';
+import '../../services/location_service.dart';
 
 class EscortPage extends StatefulWidget {
   const EscortPage({super.key});
@@ -11,12 +13,41 @@ class EscortPage extends StatefulWidget {
 
 class _EscortPageState extends State<EscortPage> {
   final TextEditingController _destinationController = TextEditingController();
+  final EscortLocationService _locationService = EscortLocationService();
   int _selectedMinutes = 15;
+  LocationPoint? _currentLocation;
+  bool _isLoadingLocation = false;
+  String? _locationError;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCurrentLocation();
+  }
 
   @override
   void dispose() {
     _destinationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchCurrentLocation() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _locationError = null;
+    });
+
+    final location = await _locationService.getCurrentLocation();
+
+    setState(() {
+      _isLoadingLocation = false;
+      if (location != null) {
+        _currentLocation = location;
+        _locationError = null;
+      } else {
+        _locationError = '无法获取位置';
+      }
+    });
   }
 
   @override
@@ -46,23 +77,47 @@ class _EscortPageState extends State<EscortPage> {
               icon: Icons.location_pin,
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.my_location,
-                    color: Color(0xFFFFE066),
-                  ),
+                  _isLoadingLocation
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          _currentLocation != null
+                              ? Icons.location_on
+                              : Icons.location_off,
+                          color: const Color(0xFFFFE066),
+                        ),
                   const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      '我的当前位置',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 14,
-                      ),
-                    ),
+                  Expanded(
+                    child: _isLoadingLocation
+                        ? const Text(
+                            '正在获取位置...',
+                            style: TextStyle(
+                              color: Colors.black54,
+                              fontSize: 14,
+                            ),
+                          )
+                        : _currentLocation != null
+                            ? Text(
+                                _currentLocation!.address ?? '我的当前位置',
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 14,
+                                ),
+                              )
+                            : Text(
+                                _locationError ?? '无法获取位置',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 14,
+                                ),
+                              ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18),
-                    onPressed: () {},
+                    onPressed: _isLoadingLocation ? null : _fetchCurrentLocation,
                   ),
                 ],
               ),
@@ -222,28 +277,45 @@ class _EscortPageState extends State<EscortPage> {
 
             // 开始护送按钮
             GestureDetector(
-              onTap: () {
-                Navigator.pushNamed(context, AppRoutes.escortProgress);
-              },
-              child: Container(
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFE066),
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFE066).withOpacity(0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Text(
-                    '开始护送',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+              onTap: _currentLocation == null
+                  ? null
+                  : () async {
+                      final escortId = DateTime.now().millisecondsSinceEpoch.toString();
+                      await _locationService.startTracking();
+                      await _locationService.reportEscortStart(
+                        escortId: escortId,
+                        destination: _destinationController.text.isEmpty
+                            ? '未指定目的地'
+                            : _destinationController.text,
+                        estimatedMinutes: _selectedMinutes,
+                        startPoint: _currentLocation!,
+                      );
+                      if (mounted) {
+                        Navigator.pushNamed(context, AppRoutes.escortProgress);
+                      }
+                    },
+              child: Opacity(
+                opacity: _currentLocation == null ? 0.5 : 1.0,
+                child: Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE066),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFE066).withOpacity(0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      _currentLocation == null ? '正在获取位置...' : '开始护送',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),

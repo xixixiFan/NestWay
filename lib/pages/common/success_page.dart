@@ -1,8 +1,46 @@
 import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
+import '../../services/location_service.dart';
 
-class SuccessPage extends StatelessWidget {
+class SuccessPage extends StatefulWidget {
   const SuccessPage({super.key});
+
+  @override
+  State<SuccessPage> createState() => _SuccessPageState();
+}
+
+class _SuccessPageState extends State<SuccessPage> {
+  final EscortLocationService _locationService = EscortLocationService();
+  LocationPoint? _currentLocation;
+  bool _isVerifying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _verifyArrival();
+  }
+
+  Future<void> _verifyArrival() async {
+    setState(() {
+      _isVerifying = true;
+    });
+
+    final location = await _locationService.getCurrentLocation();
+    if (mounted) {
+      setState(() {
+        _currentLocation = location;
+        _isVerifying = false;
+      });
+    }
+
+    await _locationService.reportEscortEnd(
+      escortId: 'current_escort',
+      endType: 'safe_arrival',
+      endPoint: location,
+    );
+
+    _locationService.reset();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,26 +51,30 @@ class SuccessPage extends StatelessWidget {
           children: [
             const SizedBox(height: 10),
 
-            // 顶部导航栏
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      '护送完成',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
-                      shape: BoxShape.circle,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Text(
+                          '护送完成',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF10B981),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -49,11 +91,10 @@ class SuccessPage extends StatelessWidget {
 
             const Spacer(),
 
-            // 成功图标
             Container(
               padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1FAE5),
+              decoration: const BoxDecoration(
+                color: Color(0xFFD1FAE5),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -65,7 +106,6 @@ class SuccessPage extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // 文本内容
             const Text(
               '你已安全到达',
               style: TextStyle(
@@ -75,31 +115,102 @@ class SuccessPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              '张美美已收到你的安全通知',
+              '紧急联系人已收到你的安全通知',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.black54,
               ),
             ),
 
+            const SizedBox(height: 24),
+
+            if (_isVerifying)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      '正在验证位置...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_currentLocation != null)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        _currentLocation!.address ?? '到达位置已记录',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             const SizedBox(height: 32),
 
-            // 按钮区域
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Row(
                 children: [
-                  // 继续下一段护送按钮
                   Expanded(
                     child: _card(
+                      onTap: () {
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.home,
+                          (route) => false,
+                        );
+                      },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Column(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF3F0FF),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF3F0FF),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -115,6 +226,7 @@ class SuccessPage extends StatelessWidget {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
@@ -122,17 +234,23 @@ class SuccessPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  // 结束护送按钮
                   Expanded(
                     child: _card(
+                      onTap: () {
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          AppRoutes.home,
+                          (route) => false,
+                        );
+                      },
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 24),
                         child: Column(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFD1FAE5),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFD1FAE5),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -148,6 +266,7 @@ class SuccessPage extends StatelessWidget {
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
+                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
@@ -160,7 +279,6 @@ class SuccessPage extends StatelessWidget {
 
             const Spacer(),
 
-            // 状态提示
             Container(
               padding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -191,7 +309,6 @@ class SuccessPage extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            // 返回首页按钮
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: GestureDetector(
@@ -234,12 +351,9 @@ class SuccessPage extends StatelessWidget {
     );
   }
 
-  // 通用卡片组件
-  static Widget _card({required Widget child}) {
+  static Widget _card({required Widget child, VoidCallback? onTap}) {
     return GestureDetector(
-      onTap: () {
-        // 按钮点击功能暂时留空
-      },
+      onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
