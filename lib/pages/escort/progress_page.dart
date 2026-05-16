@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
 import '../../mock/mock_contacts.dart';
+import '../../services/location_service.dart';
 
 class ProgressPage extends StatefulWidget {
   const ProgressPage({super.key});
@@ -14,16 +15,23 @@ class _ProgressPageState extends State<ProgressPage> {
   int _remainingMinutes = 14;
   int _remainingSeconds = 52;
   Timer? _timer;
+  Timer? _locationTimer;
+  final EscortLocationService _locationService = EscortLocationService();
+  LocationPoint? _currentLocation;
+  int _reportCount = 0;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+    _startLocationTracking();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _locationTimer?.cancel();
+    _locationService.stopTracking();
     super.dispose();
   }
 
@@ -36,12 +44,35 @@ class _ProgressPageState extends State<ProgressPage> {
           _remainingMinutes--;
           _remainingSeconds = 59;
         } else {
-          // 倒计时结束，跳转到超时页面
           _timer?.cancel();
+          _locationTimer?.cancel();
           Navigator.pushReplacementNamed(context, AppRoutes.timeout);
         }
       });
     });
+  }
+
+  void _startLocationTracking() {
+    _updateCurrentLocation();
+    _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _updateCurrentLocation();
+    });
+  }
+
+  Future<void> _updateCurrentLocation() async {
+    final location = await _locationService.recordCurrentPosition();
+    if (location != null && mounted) {
+      setState(() {
+        _currentLocation = location;
+      });
+      _reportCount++;
+      await _locationService.reportLocationToServer(
+        escortId: 'current_escort',
+        lat: location.latitude,
+        lng: location.longitude,
+        address: location.address,
+      );
+    }
   }
 
   String _formatPhone(String phone) {
@@ -131,14 +162,43 @@ class _ProgressPageState extends State<ProgressPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  '我的当前位置',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
+                                Row(
+                                  children: [
+                                    if (_currentLocation != null)
+                                      const Icon(
+                                        Icons.location_on,
+                                        size: 14,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      '我的当前位置',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                SizedBox(height: 24),
+                                const SizedBox(height: 4),
+                                _currentLocation != null
+                                    ? Text(
+                                        _currentLocation!.address ?? '已获取位置',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black54,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      )
+                                    : const Text(
+                                        '正在获取位置...',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.black38,
+                                        ),
+                                      ),
+                                const SizedBox(height: 16),
                                 const Text(
                                   '静安区地铁站A口',
                                   style: TextStyle(
@@ -192,12 +252,23 @@ class _ProgressPageState extends State<ProgressPage> {
                               color: Colors.grey[100],
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: const Text(
-                              '超时未打卡将自动通知紧急联系人',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.black54,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.gps_fixed,
+                                  size: 12,
+                                  color: Color(0xFF10B981),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '已上报 ${_reportCount} 次',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],

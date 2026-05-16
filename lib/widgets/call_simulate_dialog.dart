@@ -16,7 +16,7 @@ class CallSimulateDialog extends StatelessWidget {
 
   void _acceptCall(BuildContext context) {
     Navigator.of(context).pop();
-    VideoPlayerDialog.show(context, 'attention_video.mp4');
+    VideoPlayerDialog.show(context, 'assets/attention_video.mp4');
   }
 
   void _rejectCall(BuildContext context) {
