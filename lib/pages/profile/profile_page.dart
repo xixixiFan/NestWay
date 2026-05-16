@@ -13,6 +13,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late String _userName;
+  late List<Map<dynamic, dynamic>> _contacts;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
@@ -20,6 +21,9 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _userName = mockUser['name'] as String? ?? '用户';
+    _contacts = List<Map<dynamic, dynamic>>.from(
+      mockContacts.map((c) => Map<dynamic, dynamic>.from(c))
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ContactsProvider>().loadContacts();
     });
@@ -67,7 +71,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _showAddContactDialog() async {
     _nameController.clear();
     _phoneController.clear();
-    
+
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -101,7 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   name: name,
                   phone: phone,
                 );
-                
+
                 if (success && mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -117,6 +121,12 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
     );
+  }
+
+  void _deleteContact(int index) {
+    setState(() {
+      _contacts.removeAt(index);
+    });
   }
 
   @override
@@ -141,10 +151,7 @@ class _ProfilePageState extends State<ProfilePage> {
           alignment: Alignment.centerLeft,
           child: Text(
             '我的',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w400,
-            ),
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
           ),
         ),
         centerTitle: false,
