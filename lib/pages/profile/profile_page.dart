@@ -12,16 +12,16 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late String _userName;
   late List<Map<dynamic, dynamic>> _contacts;
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+
+  // 底部导航栏当前选中项（0: 预警, 1: SOS, 2: 我的）
+  int _currentNavIndex = 2;
 
   @override
   void initState() {
     super.initState();
-    // 修正：显式转换为 String
     _userName = mockUser['name'] as String? ?? '用户';
-    // 确保类型匹配
     _contacts = List<Map<dynamic, dynamic>>.from(
       mockContacts.map((c) => Map<dynamic, dynamic>.from(c))
     );
@@ -116,6 +116,15 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
+  // 底部导航栏点击处理（静态展示暂不跳转）
+  void _onNavTap(int index) {
+    setState(() {
+      _currentNavIndex = index;
+    });
+    // 如需实际跳转，可在此添加 Navigator.push 或路由跳转
+    // 例如：if (index == 0) Navigator.pushNamed(context, '/destination');
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = mockUser;
@@ -145,7 +154,29 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            // const AppBottomNav(currentIndex: 2), // 如需底部导航栏，请取消注释并配置路由
+            // 底部导航栏（静态展示，含预警、SOS、我的）
+            BottomNavigationBar(
+              currentIndex: _currentNavIndex,
+              onTap: _onNavTap,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              selectedItemColor: Colors.pink,
+              unselectedItemColor: Colors.grey,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.warning_amber_outlined),
+                  label: '预警',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.sos),
+                  label: 'SOS',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  label: '我的',
+                ),
+              ],
+            ),
           ],
         ),
       ),
