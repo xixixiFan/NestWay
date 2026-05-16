@@ -10,9 +10,11 @@ import '../pages/common/success_page.dart';
 import '../pages/common/timeout_page.dart';
 import '../pages/safety/safety_page.dart';
 import '../pages/profile/profile_page.dart';
+import '../pages/auth/login_page.dart';
 
 class AppRoutes {
   static const String home = '/';
+  static const String login = '/login';
   static const String sos = '/sos';
   static const String sosHistory = '/sos_history';
   static const String sendSosMessage = '/send_sos_message';
@@ -25,6 +27,7 @@ class AppRoutes {
 
   static final routes = <String, WidgetBuilder>{
     home: (context) => const HomePage(),
+    login: (context) => const LoginPage(),
     sos: (context) => const SosPage(),
     sosHistory: (context) => const SosHistoryPage(),
     sendSosMessage: (context) => const SendSosMessagePage(),

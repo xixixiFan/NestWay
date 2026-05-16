@@ -31,7 +31,7 @@ class _SosPageState extends State<SosPage> {
     });
 
     try {
-      final contacts = _sosService.getEmergencyContacts();
+      final contacts = await _sosService.getEmergencyContacts();
       await _sosService.triggerSos(
         emergencyContacts: contacts,
         locationDescription: '当前未知位置',

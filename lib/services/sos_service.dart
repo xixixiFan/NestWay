@@ -1,6 +1,5 @@
 import 'package:flutter/services.dart';
-import '../mock/mock_sos_logs.dart';
-import '../mock/mock_contacts.dart';
+import 'supabase_service.dart';
 
 class SosService {
   static final SosService _instance = SosService._internal();
@@ -45,8 +44,16 @@ class SosService {
     double? longitude,
   }) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
-      return true;
+      final response = await SupabaseService.instance
+          .from('sos_logs')
+          .insert({
+        'type': type,
+        'location_description': locationDescription,
+        'latitude': latitude,
+        'longitude': longitude,
+      });
+
+      return response.error == null;
     } catch (e) {
       return false;
     }
@@ -62,12 +69,37 @@ class SosService {
   }
 
   Future<List<Map<String, dynamic>>> getSosHistory() async {
-    await Future.delayed(const Duration(milliseconds: 300));
-    return mockSosLogs;
+    try {
+      final response = await SupabaseService.instance
+          .from('sos_logs')
+          .select()
+          .order('triggered_at', ascending: false);
+
+      if (response.error != null) {
+        throw Exception(response.error!.message);
+      }
+
+      return List<Map<String, dynamic>>.from(response.data ?? []);
+    } catch (e) {
+      return [];
+    }
   }
 
-  List<Map<String, dynamic>> getEmergencyContacts() {
-    return mockContacts;
+  Future<List<Map<String, dynamic>>> getEmergencyContacts() async {
+    try {
+      final response = await SupabaseService.instance
+          .from('emergency_contacts')
+          .select()
+          .order('sort_order');
+
+      if (response.error != null) {
+        throw Exception(response.error!.message);
+      }
+
+      return List<Map<String, dynamic>>.from(response.data ?? []);
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<void> triggerSos({

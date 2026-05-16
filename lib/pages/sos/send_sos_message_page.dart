@@ -21,14 +21,18 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     _loadContacts();
   }
 
-  void _loadContacts() {
-    _contacts = _sosService.getEmergencyContacts();
-    if (_contacts.isEmpty) {
+  Future<void> _loadContacts() async {
+    final contacts = await _sosService.getEmergencyContacts();
+    if (contacts.isEmpty) {
       _contacts = [
         {'name': '紧急联系人1', 'phone': '13900000000'}
       ];
+    } else {
+      _contacts = contacts;
     }
-    setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   String _generateMessage() {
