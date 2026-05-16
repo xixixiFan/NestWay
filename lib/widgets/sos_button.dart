@@ -83,7 +83,7 @@ class _SosButtonState extends State<SosButton> {
               ],
             ),
             transform: _isPressed
-                ? (Matrix4.identity()..scale(0.95, 0.95, 1.0))
+                ? (Matrix4.identity()..scaleByDouble(0.95, 0.95, 1.0, 1.0))
                 : Matrix4.identity(),
             child: Center(
               child: Column(
@@ -139,6 +139,7 @@ class _CountdownCircleState extends State<_CountdownCircle>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   int _countdown = 3;
+  bool _isCancelled = false;
 
   @override
   void initState() {
@@ -149,7 +150,7 @@ class _CountdownCircleState extends State<_CountdownCircle>
     );
 
     _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
+      if (status == AnimationStatus.completed && !_isCancelled) {
         widget.onComplete();
       }
     });
@@ -160,8 +161,9 @@ class _CountdownCircleState extends State<_CountdownCircle>
 
   void _startCountdown() async {
     for (int i = 3; i > 0; i--) {
+      if (_isCancelled) break;
       await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
+      if (mounted && !_isCancelled) {
         setState(() {
           _countdown = i - 1;
         });
@@ -170,12 +172,15 @@ class _CountdownCircleState extends State<_CountdownCircle>
   }
 
   void _cancel() {
+    if (_isCancelled) return;
+    _isCancelled = true;
     _controller.stop();
     widget.onCancel();
   }
 
   @override
   void dispose() {
+    _isCancelled = true;
     _controller.dispose();
     super.dispose();
   }

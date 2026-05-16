@@ -1,11 +1,10 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import '../../widgets/risk_card.dart';
-import '../../widgets/app_bottom_nav.dart';
-import '../../widgets/video_player_dialog.dart';
 import '../../widgets/call_simulate_dialog.dart';
-import '../../services/sos_service.dart';
 import '../../routes/app_routes.dart';
 
 class SosPage extends StatefulWidget {
@@ -16,57 +15,13 @@ class SosPage extends StatefulWidget {
 }
 
 class _SosPageState extends State<SosPage> {
-  final SosService _sosService = SosService();
-  bool _isLoading = false;
   String? _lastError;
   Timer? _longPressTimer;
   double _pressProgress = 0;
   bool _isLongPressing = false;
   static const _longPressDuration = Duration(seconds: 3);
-
-  Future<void> _onSosTriggered() async {
-    setState(() {
-      _isLoading = true;
-      _lastError = null;
-    });
-
-    try {
-      final contacts = _sosService.getEmergencyContacts();
-      await _sosService.triggerSos(
-        emergencyContacts: contacts,
-        locationDescription: '当前未知位置',
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('求助已发送，紧急联系人已收到通知'),
-            backgroundColor: Color(0xFF4CAF50),
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _lastError = '求助发送失败，请重试';
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_lastError!),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
+  bool _isMouseDown = false;
+  DateTime? _mouseDownTime;
 
   void _playAttentionVideo() {
     CallSimulateDialog.show(context);
@@ -102,6 +57,8 @@ class _SosPageState extends State<SosPage> {
     setState(() {
       _isLongPressing = false;
       _pressProgress = 0;
+      _isMouseDown = false;
+      _mouseDownTime = null;
     });
   }
 
@@ -145,8 +102,8 @@ class _SosPageState extends State<SosPage> {
   Future<void> _dial110() async {
     try {
       const url = 'tel:110';
-      if (await canLaunchUrl(Uri.parse(url))) {
-        await launchUrl(Uri.parse(url));
+      if (await url_launcher.canLaunchUrl(Uri.parse(url))) {
+        await url_launcher.launchUrl(Uri.parse(url));
       } else {
         const MethodChannel channel = MethodChannel('com.nestway/phone');
         await channel.invokeMethod('makePhoneCall', {'phoneNumber': '110'});
@@ -162,23 +119,6 @@ class _SosPageState extends State<SosPage> {
         );
       }
     }
-  }
-
-  Future<bool> canLaunchUrl(Uri url) async {
-    try {
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  Future<void> launchUrl(Uri url) async {
-    await launchUrlString(url.toString());
-  }
-
-  Future<void> launchUrlString(String url) async {
-    const MethodChannel channel = MethodChannel('com.nestway/phone');
-    await channel.invokeMethod('openDialer', {'phoneNumber': '110'});
   }
 
   @override
@@ -238,49 +178,78 @@ class _SosPageState extends State<SosPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
-                    GestureDetector(
-                      onLongPressStart: (_) => _startLongPress(),
-                      onLongPressEnd: (_) => _cancelLongPress(),
-                      onLongPressCancel: _cancelLongPress,
-                      child: Stack(
-                        children: [
-                          RiskCard(
-                            color: const Color(0xFFFF6B6B),
-                            title: '紧急报警',
-                            desc: '长按3秒调起拨号盘 110',
-                            icon: Icons.phone,
-                          ),
-                          if (_isLongPressing)
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      CircularProgressIndicator(
-                                        value: _pressProgress,
-                                        strokeWidth: 4,
-                                        color: Colors.white,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '${(_pressProgress * 100).toInt()}%',
-                                        style: const TextStyle(
+                    Listener(
+                      onPointerDown: (event) {
+                        if (kIsWeb) {
+                          _isMouseDown = true;
+                          _mouseDownTime = DateTime.now();
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            if (_isMouseDown && _mouseDownTime != null) {
+                              final elapsed =
+                                  DateTime.now().difference(_mouseDownTime!);
+                              if (elapsed.inMilliseconds >= 100 &&
+                                  !_isLongPressing) {
+                                _startLongPress();
+                              }
+                            }
+                          });
+                        }
+                      },
+                      onPointerUp: (event) {
+                        if (kIsWeb) {
+                          _cancelLongPress();
+                        }
+                      },
+                      onPointerCancel: (event) {
+                        if (kIsWeb) {
+                          _cancelLongPress();
+                        }
+                      },
+                      child: GestureDetector(
+                        onLongPressStart: (_) => _startLongPress(),
+                        onLongPressEnd: (_) => _cancelLongPress(),
+                        onLongPressCancel: _cancelLongPress,
+                        child: Stack(
+                          children: [
+                            RiskCard(
+                              color: const Color(0xFFFF6B6B),
+                              title: '紧急报警',
+                              desc: '长按3秒调起拨号盘 110',
+                              icon: Icons.phone,
+                            ),
+                            if (_isLongPressing)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        CircularProgressIndicator(
+                                          value: _pressProgress,
+                                          strokeWidth: 4,
                                           color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          '${(_pressProgress * 100).toInt()}%',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     RiskCard(

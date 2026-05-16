@@ -49,11 +49,13 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
 
       if (mounted) {
         await _showSuccessDialog();
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.sos,
-          (route) => false,
-        );
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.sos,
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -66,9 +68,11 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
         );
       }
     } finally {
-      setState(() {
-        _isSending = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
     }
   }
 
@@ -76,9 +80,11 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     return showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
+      builder: (BuildContext dialogContext) {
         Future.delayed(const Duration(seconds: 2), () {
-          Navigator.of(context).pop();
+          if (dialogContext.mounted) {
+            Navigator.of(dialogContext).pop();
+          }
         });
         return Dialog(
           shape: RoundedRectangleBorder(
