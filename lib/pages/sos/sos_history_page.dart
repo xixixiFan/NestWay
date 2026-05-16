@@ -143,7 +143,7 @@ class _SosHistoryPageState extends State<SosHistoryPage> {
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withOpacity(0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -158,7 +158,7 @@ class _SosHistoryPageState extends State<SosHistoryPage> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: _getTypeColor(type).withValues(alpha: 0.1),
+                                color: _getTypeColor(type).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Icon(

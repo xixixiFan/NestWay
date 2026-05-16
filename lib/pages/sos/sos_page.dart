@@ -325,7 +325,7 @@ class _SosPageState extends State<SosPage> {
                           borderRadius: BorderRadius.circular(48),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
+                              color: Colors.black.withOpacity(0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),
@@ -361,7 +361,7 @@ class _SosPageState extends State<SosPage> {
                           borderRadius: BorderRadius.circular(48),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
+                              color: Colors.black.withOpacity(0.1),
                               blurRadius: 8,
                               offset: const Offset(0, 4),
                             ),

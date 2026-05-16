@@ -1,8 +1,55 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../routes/app_routes.dart';
+import '../../mock/mock_contacts.dart';
 
-class ProgressPage extends StatelessWidget {
+class ProgressPage extends StatefulWidget {
   const ProgressPage({super.key});
+
+  @override
+  State<ProgressPage> createState() => _ProgressPageState();
+}
+
+class _ProgressPageState extends State<ProgressPage> {
+  int _remainingMinutes = 14;
+  int _remainingSeconds = 52;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_remainingSeconds > 0) {
+          _remainingSeconds--;
+        } else if (_remainingMinutes > 0) {
+          _remainingMinutes--;
+          _remainingSeconds = 59;
+        } else {
+          // 倒计时结束，跳转到超时页面
+          _timer?.cancel();
+          Navigator.pushReplacementNamed(context, AppRoutes.timeout);
+        }
+      });
+    });
+  }
+
+  String _formatPhone(String phone) {
+    if (phone.length >= 11) {
+      return '${phone.substring(0, 3)} **** ${phone.substring(7)}';
+    }
+    return phone;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,63 +60,94 @@ class ProgressPage extends StatelessWidget {
           children: [
             const SizedBox(height: 10),
 
-            // 🔝 顶部
+            // 顶部导航栏
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back),
+                    child: const Icon(
+                      Icons.arrow_back,
+                      color: Colors.black54,
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   const Text(
                     '护送进行中',
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
                   ),
                   const Spacer(),
-                  const CircleAvatar(
-                    radius: 4,
-                    backgroundColor: Colors.green,
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // 📦 内容区域
+            // 内容区域
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
-                  // 🟡 卡片1：路径
+                  // 路径卡片
                   _card(
-                    child: SizedBox(
-                      height: 90,
-                      child: Column(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
                         children: [
-                          const Row(
+                          Column(
                             children: [
-                              Icon(Icons.circle, size: 8),
-                              SizedBox(width: 8),
-                              Text('我的当前位置'),
+                              const Icon(
+                                Icons.circle,
+                                size: 10,
+                                color: Colors.black87,
+                              ),
+                              Container(
+                                height: 32,
+                                width: 2,
+                                color: Colors.grey[300],
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                              ),
+                              const Icon(
+                                Icons.location_on,
+                                size: 16,
+                                color: Color(0xFFFFE066),
+                              ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Container(
-                            height: 20,
-                            width: 1,
-                            color: Colors.black12,
-                            margin: const EdgeInsets.only(left: 4),
-                          ),
-                          const SizedBox(height: 6),
-                          const Row(
-                            children: [
-                              Icon(Icons.location_on, size: 14),
-                              SizedBox(width: 8),
-                              Text('静安区地铁站A口'),
-                            ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '我的当前位置',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                SizedBox(height: 24),
+                                const Text(
+                                  '静安区地铁站A口',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -78,39 +156,47 @@ class ProgressPage extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // 🟡 卡片2：倒计时
+                  // 倒计时卡片
                   _card(
-                    child: SizedBox(
-                      height: 140,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Text(
                             '距离预计结束还有',
-                            style: TextStyle(color: Colors.black45),
-                          ),
-                          const SizedBox(height: 10),
-                          const Text(
-                            '14分52秒',
                             style: TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
+                              fontSize: 14,
+                              color: Colors.black54,
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          Text(
+                            '${_remainingMinutes.toString().padLeft(2, '0')}'
+                            '分'
+                            '${_remainingSeconds.toString().padLeft(2, '0')}'
+                            '秒',
+                            style: const TextStyle(
+                              fontSize: 42,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Container(
-                            margin: const EdgeInsets.only(top: 10),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF5F5F5),
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.grey[100],
+                              borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Text(
                               '超时未打卡将自动通知紧急联系人',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.black45,
+                                color: Colors.black54,
                               ),
                             ),
                           ),
@@ -121,9 +207,9 @@ class ProgressPage extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  // 🔹 标题
+                  // 紧急联系人标题
                   const Padding(
-                    padding: EdgeInsets.only(left: 4, bottom: 6),
+                    padding: EdgeInsets.only(left: 4, bottom: 8),
                     child: Text(
                       '紧急联系人',
                       style: TextStyle(
@@ -133,36 +219,71 @@ class ProgressPage extends StatelessWidget {
                     ),
                   ),
 
-                  // 🟡 卡片3：联系人
+                  // 紧急联系人卡片
                   _card(
-                    child: SizedBox(
-                      height: 80,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         children: [
-                          const CircleAvatar(
-                            radius: 24,
-                            backgroundColor: Colors.pinkAccent,
-                            child: Icon(Icons.person, color: Colors.white, size: 28),
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor: Colors.teal[300],
+                            child: ClipOval(
+                              child: Image.network(
+                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
+                                fit: BoxFit.cover,
+                                width: 56,
+                                height: 56,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return const Icon(
+                                    Icons.person,
+                                    color: Colors.white,
+                                    size: 28,
+                                  );
+                                },
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 12),
-                          const Expanded(
+                          const SizedBox(width: 14),
+                          Expanded(
                             child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('张美美'),
-                                SizedBox(height: 4),
                                 Text(
-                                  '138 **** 5678',
-                                  style: TextStyle(color: Colors.black45),
+                                  mockContacts.isNotEmpty
+                                      ? mockContacts[0]['name'] as String? ?? '张美美'
+                                      : '张美美',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  mockContacts.isNotEmpty
+                                      ? _formatPhone(mockContacts[0]['phone'] as String? ?? '13888888888')
+                                      : '138 **** 5678',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey[600],
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.phone),
-                          )
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey[100],
+                              shape: BoxShape.circle,
+                            ),
+                            child: IconButton(
+                              onPressed: () {},
+                              icon: const Icon(
+                                Icons.phone,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -171,38 +292,59 @@ class ProgressPage extends StatelessWidget {
               ),
             ),
 
-            // 🔻 底部
+            // 底部
             Column(
               children: [
                 const Text(
                   '暂停护送',
-                  style: TextStyle(color: Colors.black38),
+                  style: TextStyle(
+                    color: Colors.black38,
+                    fontSize: 12,
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GestureDetector(
                     onTap: () {
                       Navigator.pushNamed(context, AppRoutes.success);
                     },
                     child: Container(
-                      height: 50,
+                      height: 54,
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFE066),
-                        borderRadius: BorderRadius.circular(25),
+                        borderRadius: BorderRadius.circular(27),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFE066).withOpacity(0.4),
+                            blurRadius: 15,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
                       ),
                       child: const Center(
-                        child: Text(
-                          '安全打卡',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.shield,
+                              size: 20,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              '安全打卡',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
               ],
             ),
           ],
@@ -214,16 +356,16 @@ class ProgressPage extends StatelessWidget {
   // 通用卡片组件
   static Widget _card({required Widget child}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: child,

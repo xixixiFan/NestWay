@@ -145,7 +145,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            // const AppBottomNav(currentIndex: 2), // 如需底部导航栏，请取消注释并配置路由
           ],
         ),
       ),
@@ -166,25 +165,6 @@ class _ProfilePageState extends State<ProfilePage> {
             child: avatarUrl.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
           ),
           const SizedBox(width: 12),
-<<<<<<< HEAD
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                user["name"],
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 4),
-              const Row(
-                children: [
-                  Icon(Icons.circle, size: 8, color: Colors.green),
-                  SizedBox(width: 4),
-                  Text("账号已验证", style: TextStyle(fontSize: 12)),
-                ],
-              )
-            ],
-=======
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +184,6 @@ class _ProfilePageState extends State<ProfilePage> {
           GestureDetector(
             onTap: _editName,
             child: const Icon(Icons.edit, color: Colors.grey),
->>>>>>> origin/feature/safety-profile
           ),
         ],
       ),
@@ -243,30 +222,15 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: _cardStyle(),
       child: Column(
         children: [
-<<<<<<< HEAD
-          const Row(
-            children: [
-              Text("紧急联系人"),
-              Spacer(),
-              Text("管理", style: TextStyle(color: Colors.grey)),
-            ],
-=======
           Row(
             children: const [Text("紧急联系人"), Spacer(), Text("管理", style: TextStyle(color: Colors.grey))],
->>>>>>> origin/feature/safety-profile
           ),
           const SizedBox(height: 12),
-<<<<<<< HEAD
-
-          ...contacts.map((c) => _buildContactItem(c)),
-
-=======
           ..._contacts.asMap().entries.map((entry) {
             final idx = entry.key;
             final contact = entry.value;
             return _buildContactItem(contact, idx);
           }).toList(),
->>>>>>> origin/feature/safety-profile
           const SizedBox(height: 12),
           GestureDetector(
             onTap: _showAddContactDialog,
