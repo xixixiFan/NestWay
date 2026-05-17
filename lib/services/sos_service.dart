@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'supabase_service.dart';
 
 class SosService {
@@ -11,6 +13,13 @@ class SosService {
 
   int? get currentUserId => _currentUserId;
   set currentUserId(int? value) => _currentUserId = value;
+
+  static const _edgeFunctionUrl =
+      'https://fbnctnhjcjkbmmvcuqxh.supabase.co/functions/v1/send-sos-sms';
+  // 与 supabase secrets set FUNCTION_SECRET 保持一致
+  static const _edgeFunctionSecret = 'nestway-sos-sms-2026';
+
+  static const _amapApiKey = '89ff90f769765ecd5f68e2cb48e283cb';
 
   Future<void> makePhoneCall(String phoneNumber) async {
     try {
@@ -228,21 +237,125 @@ class SosService {
     }
   }
 
+  Future<String> getUserDisplayName() async {
+    if (_currentUserId == null) return '用户';
+    try {
+      final response = await SupabaseService.instance
+          .from('users')
+          .select('name')
+          .eq('id', _currentUserId!)
+          .single();
+      final name = response['name'] as String?;
+      if (name != null && name.isNotEmpty) return name;
+    } catch (e) {
+      print('获取用户名失败: $e');
+    }
+    return '用户';
+  }
+
+  Future<Map<String, dynamic>> getCurrentLocationWithAddress() async {
+    final result = <String, dynamic>{
+      'latitude': null,
+      'longitude': null,
+      'address': null,
+    };
+
+    final hasPermission = await _checkLocationPermission();
+    if (!hasPermission) return result;
+
+    try {
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      result['latitude'] = position.latitude;
+      result['longitude'] = position.longitude;
+
+      // 逆地理编码（高德）
+      final address = await _reverseGeocode(position.latitude, position.longitude);
+      result['address'] = address;
+    } catch (e) {
+      print('获取位置失败: $e');
+    }
+
+    return result;
+  }
+
+  Future<String?> _reverseGeocode(double lat, double lng) async {
+    try {
+      final url = Uri.parse(
+        'https://restapi.amap.com/v3/geocode/regeo?key=$_amapApiKey&location=$lng,$lat&extensions=base',
+      );
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == '1' && data['regeocode'] != null) {
+          return data['regeocode']['formatted_address'] as String?;
+        }
+      }
+    } catch (e) {
+      print('逆地理编码失败: $e');
+    }
+    return null;
+  }
+
+  Future<bool> sendSosSms({
+    required List<String> phones,
+    required String name,
+    required String location,
+    required String coords,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(_edgeFunctionUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_edgeFunctionSecret',
+        },
+        body: json.encode({
+          'phones': phones,
+          'name': name,
+          'location': location,
+          'coords': coords,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          print('✅ SOS短信已发送给 ${data['sentTo']} 个联系人');
+          return true;
+        }
+      }
+
+      print('❌ 短信发送失败: ${response.statusCode} ${response.body}');
+      return false;
+    } catch (e) {
+      print('❌ 短信发送异常: $e');
+      return false;
+    }
+  }
+
   Future<void> triggerSos({
     required List<Map<String, dynamic>> emergencyContacts,
     String? locationDescription,
   }) async {
-    final location = await getCurrentLocation();
-    final latitude = location['latitude'];
-    final longitude = location['longitude'];
+    final location = await getCurrentLocationWithAddress();
+    final latitude = location['latitude'] as double?;
+    final longitude = location['longitude'] as double?;
+    final address = location['address'] as String?;
+
     final phone = emergencyContacts.isNotEmpty
         ? emergencyContacts.first['phone'] as String? ?? '110'
         : '110';
 
-    await Future.wait([
+    final tasks = <Future>[
       reportSosEvent(
         type: 'sos',
-        locationDescription: locationDescription,
+        locationDescription: locationDescription ?? address,
         latitude: latitude,
         longitude: longitude,
       ),
@@ -251,8 +364,28 @@ class SosService {
         shareLocation(
           latitude: latitude,
           longitude: longitude,
-          description: locationDescription ?? 'SOS 求助位置',
+          description: locationDescription ?? address ?? 'SOS 求助位置',
         ),
-    ]);
+    ];
+
+    // 发送 SOS 短信给所有紧急联系人
+    if (emergencyContacts.isNotEmpty) {
+      final phones = emergencyContacts
+          .map((c) => c['phone'] as String?)
+          .whereType<String>()
+          .toList();
+      final name = await getUserDisplayName();
+      final coords = (latitude != null && longitude != null)
+          ? '${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}'
+          : '';
+      tasks.add(sendSosSms(
+        phones: phones,
+        name: name,
+        location: address ?? locationDescription ?? '未知位置',
+        coords: coords,
+      ));
+    }
+
+    await Future.wait(tasks);
   }
 }
