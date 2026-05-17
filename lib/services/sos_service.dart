@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'supabase_service.dart';
 
 class SosService {
@@ -26,6 +27,11 @@ class SosService {
 
   Future<Map<String, double?>> getCurrentLocation() async {
     try {
+      final hasPermission = await _checkLocationPermission();
+      if (!hasPermission) {
+        return {'latitude': null, 'longitude': null};
+      }
+
       const MethodChannel channel = MethodChannel('com.nestway/location');
       final result = await channel.invokeMethod('getCurrentLocation');
       return {
@@ -35,6 +41,20 @@ class SosService {
     } catch (e) {
       return {'latitude': null, 'longitude': null};
     }
+  }
+
+  Future<bool> _checkLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return false;
+    }
+    if (permission == LocationPermission.deniedForever) return false;
+
+    return true;
   }
 
   String generateLocationShareUrl(double lat, double lng, String? description) {
