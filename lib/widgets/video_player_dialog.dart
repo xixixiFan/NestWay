@@ -26,17 +26,22 @@ class VideoPlayerDialog extends StatefulWidget {
 class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
   late VideoPlayerController _controller;
   bool _isInitialized = false;
+  bool _hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.asset(widget.videoPath)
-      ..initialize().then((_) {
-        setState(() {
-          _isInitialized = true;
-        });
+    _controller = VideoPlayerController.asset(widget.videoPath);
+    _controller.initialize().then((_) {
+      if (mounted) {
+        setState(() => _isInitialized = true);
         _controller.play();
-      });
+      }
+    }).catchError((_) {
+      if (mounted) {
+        setState(() => _hasError = true);
+      }
+    });
   }
 
   @override
@@ -52,15 +57,44 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
       insetPadding: const EdgeInsets.all(16),
       child: Stack(
         children: [
-          if (_isInitialized)
+          if (_isInitialized) ...[
             AspectRatio(
               aspectRatio: _controller.value.aspectRatio,
               child: VideoPlayer(_controller),
             ),
-          if (!_isInitialized)
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: VideoProgressIndicator(
+                _controller,
+                allowScrubbing: true,
+                colors: const VideoProgressColors(
+                  playedColor: Colors.white,
+                  bufferedColor: Colors.white30,
+                  backgroundColor: Colors.white24,
+                ),
+              ),
+            ),
+          ],
+          if (!_isInitialized && !_hasError)
             const Center(
               child: CircularProgressIndicator(
                 color: Colors.white,
+              ),
+            ),
+          if (_hasError)
+            const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.white, size: 48),
+                  SizedBox(height: 12),
+                  Text(
+                    '视频加载失败',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ],
               ),
             ),
           Positioned(
@@ -75,20 +109,6 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-            ),
-          ),
-          Positioned(
-            bottom: 16,
-            left: 16,
-            right: 16,
-            child: VideoProgressIndicator(
-              _controller,
-              allowScrubbing: true,
-              colors: const VideoProgressColors(
-                playedColor: Colors.white,
-                bufferedColor: Colors.white30,
-                backgroundColor: Colors.white24,
-              ),
             ),
           ),
         ],

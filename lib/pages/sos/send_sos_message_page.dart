@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../services/sos_service.dart';
+import 'package:provider/provider.dart';
+import '../../services/contacts_provider.dart';
 import '../../routes/app_routes.dart';
 
 class SendSosMessagePage extends StatefulWidget {
@@ -10,25 +11,15 @@ class SendSosMessagePage extends StatefulWidget {
 }
 
 class _SendSosMessagePageState extends State<SendSosMessagePage> {
-  final SosService _sosService = SosService();
-  List<Map<String, dynamic>> _contacts = [];
   int _selectedContactIndex = 0;
   bool _isSending = false;
 
   @override
   void initState() {
     super.initState();
-    _loadContacts();
-  }
-
-  void _loadContacts() {
-    _contacts = _sosService.getEmergencyContacts();
-    if (_contacts.isEmpty) {
-      _contacts = [
-        {'name': '紧急联系人1', 'phone': '13900000000'}
-      ];
-    }
-    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ContactsProvider>().loadContacts();
+    });
   }
 
   String _generateMessage() {
@@ -144,165 +135,186 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.contacts, size: 24),
+            onPressed: () {
+              Navigator.pushNamed(context, AppRoutes.emergencyContacts);
+            },
+            tooltip: '管理紧急联系人',
+          ),
+        ],
       ),
       body: Container(
         color: const Color(0xFFF3E5F5),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        '收件人：',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+          child: Consumer<ContactsProvider>(
+            builder: (context, provider, child) {
+              final contacts = provider.contacts.isNotEmpty
+                  ? provider.contacts
+                  : [
+                      {'name': '紧急联系人1', 'phone': '13900000000'}
+                    ];
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      Expanded(
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _contacts.isNotEmpty
-                                ? _contacts[_selectedContactIndex]['name']
-                                : '紧急联系人1',
-                            isExpanded: true,
-                            alignment: Alignment.centerRight,
-                            icon: const Icon(Icons.arrow_drop_down, size: 24),
-                            items: _contacts.map((contact) {
-                              return DropdownMenuItem<String>(
-                                value: contact['name'],
-                                child: Text(
-                                  contact['name'],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _selectedContactIndex = _contacts.indexWhere(
-                                  (c) => c['name'] == newValue,
-                                );
-                                if (_selectedContactIndex < 0) {
-                                  _selectedContactIndex = 0;
-                                }
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '正文：',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _generateMessage(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            height: 1.6,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: _cancel,
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: Colors.grey[300]!,
-                                    width: 1,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Text(
-                                    '取消',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                          const Text(
+                            '收件人：',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 16),
                           Expanded(
-                            child: InkWell(
-                              onTap: _sendMessage,
-                              borderRadius: BorderRadius.circular(24),
-                              child: Container(
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFFFF9C4),
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                child: Center(
-                                  child: _isSending
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.black,
-                                          ),
-                                        )
-                                      : const Text(
-                                          '发送',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: contacts.isNotEmpty
+                                    ? contacts[_selectedContactIndex]['name']
+                                    : '紧急联系人1',
+                                isExpanded: true,
+                                alignment: Alignment.centerRight,
+                                icon:
+                                    const Icon(Icons.arrow_drop_down, size: 24),
+                                items: contacts.map((contact) {
+                                  return DropdownMenuItem<String>(
+                                    value: contact['name'],
+                                    child: Text(
+                                      contact['name'],
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (String? newValue) {
+                                  setState(() {
+                                    _selectedContactIndex = contacts.indexWhere(
+                                      (c) => c['name'] == newValue,
+                                    );
+                                    if (_selectedContactIndex < 0) {
+                                      _selectedContactIndex = 0;
+                                    }
+                                  });
+                                },
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '正文：',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFAFAFA),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _generateMessage(),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                height: 1.6,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _cancel,
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Container(
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(24),
+                                      border: Border.all(
+                                        color: Colors.grey[300]!,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '取消',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: _sendMessage,
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Container(
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF9C4),
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    child: Center(
+                                      child: _isSending
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.black,
+                                              ),
+                                            )
+                                          : const Text(
+                                              '发送',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
