@@ -1,11 +1,11 @@
 {
-    "name": "solotrip",
-    "short_name": "solotrip",
+    "name": "NestWay",
+    "short_name": "NestWay",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "NestWay - 女性独旅安全 App",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
