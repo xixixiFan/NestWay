@@ -197,14 +197,11 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
           icon: const Icon(Icons.arrow_back, size: 16),
           onPressed: _cancel,
         ),
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '发送求助短信',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
-          ),
+        title: const Text(
+          '发送求助短信',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
         ),
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 0,

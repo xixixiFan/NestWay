@@ -198,17 +198,14 @@ class _SosPageState extends State<SosPage> {
             );
           },
         ),
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'SOS',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w400,
-            ),
+        title: const Text(
+          'SOS',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w400,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 0,
@@ -305,7 +302,7 @@ class _SosPageState extends State<SosPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 80),
+              const SizedBox(height: 40),
             ],
           ),
         ),
