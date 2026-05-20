@@ -236,8 +236,9 @@ class _SosPageState extends State<SosPage> {
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
+                child: Center(
+                  child: Column(
+                    children: [
                     GestureDetector(
                       onLongPressStart: (_) => _startLongPress(),
                       onLongPressEnd: (_) => _cancelLongPress(),
@@ -300,6 +301,7 @@ class _SosPageState extends State<SosPage> {
                       onTap: _playAttentionVideo,
                     ),
                   ],
+                  ),
                 ),
               ),
               const SizedBox(height: 40),

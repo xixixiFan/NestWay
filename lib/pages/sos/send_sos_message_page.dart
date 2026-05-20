@@ -21,6 +21,9 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
   String _location = '';
   double? _latitude;
   double? _longitude;
+  
+  // 选中的联系人ID集合
+  final Set<int> _selectedContactIds = {};
 
   @override
   void initState() {
@@ -28,7 +31,22 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ContactsProvider>().loadContacts();
       _loadUserName();
+      _initializeDefaultContact();
     });
+  }
+  
+  // 初始化默认选中第一个联系人
+  void _initializeDefaultContact() {
+    final contacts = context.read<ContactsProvider>().contacts;
+    if (contacts.isNotEmpty) {
+      final firstContact = contacts.first;
+      final contactId = firstContact['id'] as int?;
+      if (contactId != null) {
+        setState(() {
+          _selectedContactIds.add(contactId);
+        });
+      }
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -57,6 +75,17 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     final contacts = context.read<ContactsProvider>().contacts;
     if (contacts.isEmpty) {
       _showNoContactsDialog();
+      return;
+    }
+    
+    // 检查是否有选中的联系人
+    if (_selectedContactIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请至少选择一个联系人'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -88,7 +117,12 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
       _step = _SendingStep.sending;
     });
 
-    final phones = contacts
+    // 只发送给选中的联系人
+    final selectedContacts = contacts
+        .where((c) => _selectedContactIds.contains(c['id'] as int?))
+        .toList();
+    
+    final phones = selectedContacts
         .map((c) => c['phone'] as String?)
         .whereType<String>()
         .toList();
@@ -106,7 +140,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
 
     if (mounted) {
       if (success) {
-        await _showSuccessDialog();
+        await _showSuccessDialog(selectedContacts.length);
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.sos,
@@ -147,7 +181,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     );
   }
 
-  Future<void> _showSuccessDialog() async {
+  Future<void> _showSuccessDialog(int contactCount) async {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -161,19 +195,19 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
           ),
           child: Container(
             padding: const EdgeInsets.all(32),
-            child: const Column(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.check_circle, size: 70, color: Color(0xFF4CAF50)),
-                SizedBox(height: 20),
-                Text(
+                const Icon(Icons.check_circle, size: 70, color: Color(0xFF4CAF50)),
+                const SizedBox(height: 20),
+                const Text(
                   '已发送！',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  '求助短信已发送给所有紧急联系人',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  '求助短信已发送给 $contactCount 位紧急联系人',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
               ],
             ),
@@ -236,6 +270,19 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
   }
 
   Widget _buildContactsSection(List<Map<String, dynamic>> contacts) {
+    // 确保在联系人加载后初始化默认选中
+    if (contacts.isNotEmpty && _selectedContactIds.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final firstContact = contacts.first;
+        final contactId = firstContact['id'] as int?;
+        if (contactId != null && mounted) {
+          setState(() {
+            _selectedContactIds.add(contactId);
+          });
+        }
+      });
+    }
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -253,7 +300,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
               ),
               Text(
-                '共 ${contacts.length} 人',
+                '已选 ${_selectedContactIds.length}/${contacts.length} 人',
                 style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
             ],
@@ -294,43 +341,98 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
               final contact = entry.value;
               final name = contact['name'] as String? ?? '';
               final phone = contact['phone'] as String? ?? '';
-              return Container(
-                margin: EdgeInsets.only(top: entry.key == 0 ? 0 : 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Color(0xFFFFF9C4),
-                      child:
-                          Icon(Icons.person, size: 18, color: Colors.black54),
+              final contactId = contact['id'] as int?;
+              final isSelected = contactId != null && _selectedContactIds.contains(contactId);
+              final sortOrder = contact['sort_order'] as int? ?? 0;
+              
+              return InkWell(
+                onTap: contactId != null ? () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedContactIds.remove(contactId);
+                    } else {
+                      _selectedContactIds.add(contactId);
+                    }
+                  });
+                } : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  margin: EdgeInsets.only(top: entry.key == 0 ? 0 : 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected 
+                        ? const Color(0xFFFFF9C4).withValues(alpha: 0.3)
+                        : const Color(0xFFFAFAFA),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected 
+                          ? const Color(0xFFFFE066)
+                          : Colors.transparent,
+                      width: 2,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          Text(
-                            phone,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: isSelected 
+                            ? const Color(0xFFFFE066)
+                            : const Color(0xFFFFF9C4),
+                        child: sortOrder == 1
+                            ? const Icon(Icons.star, size: 18, color: Colors.black54)
+                            : const Icon(Icons.person, size: 18, color: Colors.black54),
                       ),
-                    ),
-                    const Icon(Icons.check_circle_outline,
-                        size: 20, color: Color(0xFFFFE066)),
-                  ],
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                      fontSize: 14, fontWeight: FontWeight.w500),
+                                ),
+                                if (sortOrder == 1) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFE066),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      '顺位1',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            Text(
+                              phone,
+                              style: const TextStyle(
+                                  fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        isSelected ? Icons.check_circle : Icons.circle_outlined,
+                        size: 24,
+                        color: isSelected 
+                            ? const Color(0xFFFFE066)
+                            : Colors.grey[400],
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),
