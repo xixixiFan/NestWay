@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/demo_users.dart';
 import '../../services/auth_provider.dart';
+import '../../services/sos_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -80,6 +81,8 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && user.phone != null) {
+        final userId = int.parse(user.id);
+        
         try {
           final response = await Supabase.instance.client
               .from('users')
@@ -89,7 +92,7 @@ class _LoginPageState extends State<LoginPage> {
 
           if (response == null) {
             await Supabase.instance.client.from('users').insert({
-              'id': int.parse(user.id),
+              'id': userId,
               'name': _nameController.text.isNotEmpty ? _nameController.text : '用户',
               'phone': user.phone,
               'is_verified': true,
@@ -97,12 +100,15 @@ class _LoginPageState extends State<LoginPage> {
           }
         } catch (_) {
           await Supabase.instance.client.from('users').insert({
-            'id': int.parse(user.id),
+            'id': userId,
             'name': _nameController.text.isNotEmpty ? _nameController.text : '用户',
             'phone': user.phone,
             'is_verified': true,
           });
         }
+        
+        // 设置 SosService 的 currentUserId
+        SosService().currentUserId = userId;
       }
 
       if (mounted) {

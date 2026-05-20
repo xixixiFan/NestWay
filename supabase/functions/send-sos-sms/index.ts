@@ -110,14 +110,12 @@ serve(async (req: Request) => {
   let phones: string[];
   let name: string;
   let location: string;
-  let coords: string;
 
   try {
     const body = await req.json();
     phones = body.phones;
     name = body.name;
     location = body.location;
-    coords = body.coords;
 
     if (!phones || !Array.isArray(phones) || phones.length === 0) {
       return new Response(
@@ -153,12 +151,12 @@ serve(async (req: Request) => {
   const phoneNumbers = validPhones.join(",");
 
   console.log(`发送SOS短信到: ${phoneNumbers}`);
-  console.log(`  用户: ${name}, 位置: ${location}, 坐标: ${coords}`);
+  console.log(`  用户: ${name}, 位置: ${location}`);
 
   // 阿里云 SendSms 支持最多1000个逗号分隔的号码
   const result = await callSendSms({
     phoneNumbers,
-    templateParam: { name, location, coords: coords || "" },
+    templateParam: { name, location },
   });
 
   if (result.ok) {

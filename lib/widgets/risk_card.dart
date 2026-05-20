@@ -20,32 +20,32 @@ class RiskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(110),
+      borderRadius: BorderRadius.circular(80),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        width: 220,
-        height: 220,
+        margin: const EdgeInsets.only(bottom: 12),
+        width: 160,
+        height: 160,
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
               color: color.withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
           border: Border.all(
             color: color,
-            width: 4,
+            width: 3,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 70,
-              height: 70,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -54,32 +54,32 @@ class RiskCard extends StatelessWidget {
                 child: icon != null
                     ? Icon(
                         icon,
-                        size: 36,
+                        size: 26,
                         color: Colors.white,
                       )
                     : const Icon(
                         Icons.circle,
-                        size: 36,
+                        size: 26,
                         color: Colors.white,
                       ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Text(
               title,
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: 14,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Text(
                 desc,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   color: Colors.black54,
                 ),
               ),
