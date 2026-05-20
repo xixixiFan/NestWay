@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import '../../routes/app_routes.dart';
+import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
+import '../../routes/app_routes.dart';
 
 class SuccessPage extends StatefulWidget {
-  const SuccessPage({super.key});
+  final EscortConfig config;
+  final LocationPoint? lastLocation;
+
+  const SuccessPage({
+    super.key,
+    required this.config,
+    this.lastLocation,
+  });
 
   @override
   State<SuccessPage> createState() => _SuccessPageState();
@@ -34,7 +42,7 @@ class _SuccessPageState extends State<SuccessPage> {
     }
 
     await _locationService.reportEscortEnd(
-      escortId: 'current_escort',
+      escortId: widget.config.escortId,
       endType: 'safe_arrival',
       endPoint: location,
     );
@@ -357,7 +365,7 @@ class _SuccessPageState extends State<SuccessPage> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),

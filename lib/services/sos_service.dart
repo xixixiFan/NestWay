@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'supabase_service.dart';
+import 'location_service.dart';
 
 class SosService {
   static final SosService _instance = SosService._internal();
@@ -19,8 +20,6 @@ class SosService {
   // 与 supabase secrets set FUNCTION_SECRET 保持一致
   static const _edgeFunctionSecret = 'nestway-sos-sms-2026';
 
-  static const _amapApiKey = '89ff90f769765ecd5f68e2cb48e283cb';
-
   Future<void> makePhoneCall(String phoneNumber) async {
     try {
       const MethodChannel channel = MethodChannel('com.nestway/phone');
@@ -35,21 +34,28 @@ class SosService {
   }
 
   Future<Map<String, double?>> getCurrentLocation() async {
+    // Cold backup: try native MethodChannel, then fall back to LocationService
     try {
       final hasPermission = await _checkLocationPermission();
-      if (!hasPermission) {
-        return {'latitude': null, 'longitude': null};
+      if (hasPermission) {
+        const MethodChannel channel = MethodChannel('com.nestway/location');
+        final result = await channel.invokeMethod('getCurrentLocation');
+        if (result['latitude'] != null && result['longitude'] != null) {
+          return {
+            'latitude': result['latitude'] as double?,
+            'longitude': result['longitude'] as double?,
+          };
+        }
       }
-
-      const MethodChannel channel = MethodChannel('com.nestway/location');
-      final result = await channel.invokeMethod('getCurrentLocation');
-      return {
-        'latitude': result['latitude'] as double?,
-        'longitude': result['longitude'] as double?,
-      };
-    } catch (e) {
-      return {'latitude': null, 'longitude': null};
+    } catch (_) {
+      // MethodChannel not implemented, fall through to LocationService
     }
+
+    final loc = await LocationService().getPreciseLocation();
+    return {
+      'latitude': loc.latitude,
+      'longitude': loc.longitude,
+    };
   }
 
   Future<bool> _checkLocationPermission() async {
@@ -254,52 +260,12 @@ class SosService {
   }
 
   Future<Map<String, dynamic>> getCurrentLocationWithAddress() async {
-    final result = <String, dynamic>{
-      'latitude': null,
-      'longitude': null,
-      'address': null,
+    final loc = await LocationService().getPreciseLocation();
+    return {
+      'latitude': loc.latitude,
+      'longitude': loc.longitude,
+      'address': loc.address,
     };
-
-    final hasPermission = await _checkLocationPermission();
-    if (!hasPermission) return result;
-
-    try {
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-
-      result['latitude'] = position.latitude;
-      result['longitude'] = position.longitude;
-
-      // 逆地理编码（高德）
-      final address = await _reverseGeocode(position.latitude, position.longitude);
-      result['address'] = address;
-    } catch (e) {
-      print('获取位置失败: $e');
-    }
-
-    return result;
-  }
-
-  Future<String?> _reverseGeocode(double lat, double lng) async {
-    try {
-      final url = Uri.parse(
-        'https://restapi.amap.com/v3/geocode/regeo?key=$_amapApiKey&location=$lng,$lat&extensions=base',
-      );
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == '1' && data['regeocode'] != null) {
-          return data['regeocode']['formatted_address'] as String?;
-        }
-      }
-    } catch (e) {
-      print('逆地理编码失败: $e');
-    }
-    return null;
   }
 
   Future<bool> sendSosSms({
@@ -391,5 +357,40 @@ class SosService {
     }
 
     await Future.wait(tasks);
+  }
+
+  /// 超时自动通知紧急联系人
+  Future<void> sendTimeoutAlert({
+    required List<String> phones,
+    required LocationPoint lastLocation,
+    required String userName,
+  }) async {
+    await sendSosSms(
+      phones: phones,
+      name: userName,
+      location: lastLocation.address ?? '未知位置',
+      coords:
+          '${lastLocation.latitude.toStringAsFixed(6)},${lastLocation.longitude.toStringAsFixed(6)}',
+    );
+
+    await reportSosEvent(
+      type: 'escort_timeout',
+      locationDescription: lastLocation.address,
+      latitude: lastLocation.latitude,
+      longitude: lastLocation.longitude,
+    );
+  }
+
+  /// 超时后用户确认安全，发送解释短信
+  Future<void> sendSafetyExplanation({
+    required List<String> phones,
+    required String userName,
+  }) async {
+    await sendSosSms(
+      phones: phones,
+      name: userName,
+      location: '用户已确认安全，仅为超时未及时打卡，无需担心。',
+      coords: null,
+    );
   }
 }

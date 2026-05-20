@@ -1,21 +1,25 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../routes/app_routes.dart';
-import '../../mock/mock_contacts.dart';
+import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
+import '../common/timeout_page.dart';
+import '../common/success_page.dart';
 
 class ProgressPage extends StatefulWidget {
-  const ProgressPage({super.key});
+  final EscortConfig config;
+
+  const ProgressPage({super.key, required this.config});
 
   @override
   State<ProgressPage> createState() => _ProgressPageState();
 }
 
 class _ProgressPageState extends State<ProgressPage> {
-  int _remainingMinutes = 14;
-  int _remainingSeconds = 52;
+  late int _remainingMinutes;
+  late int _remainingSeconds;
   Timer? _timer;
   Timer? _locationTimer;
+  bool _isPaused = false;
   final EscortLocationService _locationService = EscortLocationService();
   LocationPoint? _currentLocation;
   int _reportCount = 0;
@@ -23,6 +27,8 @@ class _ProgressPageState extends State<ProgressPage> {
   @override
   void initState() {
     super.initState();
+    _remainingMinutes = widget.config.estimatedMinutes;
+    _remainingSeconds = 0;
     _startTimer();
     _startLocationTracking();
   }
@@ -36,6 +42,7 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_remainingSeconds > 0) {
@@ -46,7 +53,15 @@ class _ProgressPageState extends State<ProgressPage> {
         } else {
           _timer?.cancel();
           _locationTimer?.cancel();
-          Navigator.pushReplacementNamed(context, AppRoutes.timeout);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TimeoutPage(
+                config: widget.config,
+                lastLocation: _currentLocation,
+              ),
+            ),
+          );
         }
       });
     });
@@ -67,7 +82,7 @@ class _ProgressPageState extends State<ProgressPage> {
       });
       _reportCount++;
       await _locationService.reportLocationToServer(
-        escortId: 'current_escort',
+        escortId: widget.config.escortId,
         lat: location.latitude,
         lng: location.longitude,
         address: location.address,
@@ -199,9 +214,9 @@ class _ProgressPageState extends State<ProgressPage> {
                                         ),
                                       ),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  '静安区地铁站A口',
-                                  style: TextStyle(
+                                Text(
+                                  widget.config.destination,
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     color: Colors.black87,
                                   ),
@@ -278,6 +293,30 @@ class _ProgressPageState extends State<ProgressPage> {
 
                   const SizedBox(height: 16),
 
+                  // 超时警告条
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF8E1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.warning_amber, color: Color(0xFFF59E0B), size: 18),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '超时未打卡将自动通知紧急联系人',
+                            style: TextStyle(fontSize: 13, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
                   // 紧急联系人标题
                   const Padding(
                     padding: EdgeInsets.only(left: 4, bottom: 8),
@@ -297,21 +336,25 @@ class _ProgressPageState extends State<ProgressPage> {
                       child: Row(
                         children: [
                           CircleAvatar(
-                            radius: 28,
-                            backgroundColor: Colors.teal[300],
-                            child: ClipOval(
-                              child: Image.network(
-                                'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
-                                fit: BoxFit.cover,
-                                width: 56,
-                                height: 56,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return const Icon(
-                                    Icons.person,
-                                    color: Colors.white,
-                                    size: 28,
-                                  );
-                                },
+                            radius: 30,
+                            backgroundColor: const Color(0xFFFFE566),
+                            child: CircleAvatar(
+                              radius: 28,
+                              backgroundColor: Colors.teal[300],
+                              child: ClipOval(
+                                child: Image.network(
+                                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
+                                  fit: BoxFit.cover,
+                                  width: 56,
+                                  height: 56,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 28,
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                           ),
@@ -321,8 +364,8 @@ class _ProgressPageState extends State<ProgressPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  mockContacts.isNotEmpty
-                                      ? mockContacts[0]['name'] as String? ?? '张美美'
+                                  widget.config.contacts.isNotEmpty
+                                      ? widget.config.contacts[0]['name'] as String? ?? '张美美'
                                       : '张美美',
                                   style: const TextStyle(
                                     fontSize: 16,
@@ -331,8 +374,8 @@ class _ProgressPageState extends State<ProgressPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  mockContacts.isNotEmpty
-                                      ? _formatPhone(mockContacts[0]['phone'] as String? ?? '13888888888')
+                                  widget.config.contacts.isNotEmpty
+                                      ? _formatPhone(widget.config.contacts[0]['phone'] as String? ?? '13888888888')
                                       : '138 **** 5678',
                                   style: TextStyle(
                                     fontSize: 13,
@@ -366,11 +409,26 @@ class _ProgressPageState extends State<ProgressPage> {
             // 底部
             Column(
               children: [
-                const Text(
-                  '暂停护送',
-                  style: TextStyle(
-                    color: Colors.black38,
-                    fontSize: 12,
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _isPaused = !_isPaused;
+                      if (_isPaused) {
+                        _timer?.cancel();
+                        _locationTimer?.cancel();
+                      } else {
+                        _startTimer();
+                        _startLocationTracking();
+                      }
+                    });
+                  },
+                  child: Text(
+                    _isPaused ? '继续护送' : '暂停护送',
+                    style: TextStyle(
+                      color: _isPaused ? const Color(0xFF10B981) : Colors.black38,
+                      fontSize: 14,
+                      fontWeight: _isPaused ? FontWeight.w600 : FontWeight.normal,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -378,7 +436,15 @@ class _ProgressPageState extends State<ProgressPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, AppRoutes.success);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => SuccessPage(
+                            config: widget.config,
+                            lastLocation: _currentLocation,
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
                       height: 54,
@@ -430,7 +496,7 @@ class _ProgressPageState extends State<ProgressPage> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),

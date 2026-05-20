@@ -6,9 +6,6 @@ import '../pages/sos/sos_history_page.dart';
 import '../pages/sos/send_sos_message_page.dart';
 import '../pages/sos/emergency_contacts_page.dart';
 import '../pages/escort/escort_page.dart';
-import '../pages/escort/progress_page.dart';
-import '../pages/common/success_page.dart';
-import '../pages/common/timeout_page.dart';
 import '../pages/safety/safety_page.dart';
 import '../pages/profile/profile_page.dart';
 import '../pages/auth/login_page.dart';
@@ -35,9 +32,7 @@ class AppRoutes {
     sendSosMessage: (context) => const SendSosMessagePage(),
     emergencyContacts: (context) => const EmergencyContactsPage(),
     escort: (context) => const EscortPage(),
-    escortProgress: (context) => const ProgressPage(),
-    success: (context) => const SuccessPage(),
-    timeout: (context) => const TimeoutPage(),
+    // escortProgress/success/timeout 改为构造器传参导航，不再使用命名路由
     safety: (context) => const SafetyPage(),
     profile: (context) => const ProfilePage(),
   };
