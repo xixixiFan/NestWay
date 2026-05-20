@@ -201,7 +201,7 @@ class _SosPageState extends State<SosPage> {
         title: const Text(
           'SOS',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 18,
             fontWeight: FontWeight.w400,
           ),
         ),
