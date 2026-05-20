@@ -42,8 +42,13 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     final coords = (_latitude != null && _longitude != null)
         ? '（${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}）'
         : '';
-    return '【NestWay】紧急求助！$_userName发起了SOS求助，您是TA的紧急联系人。'
-        '当前位置：$_location$coords。请立即确认TA的安全！';
+    final locationWithCoords = _location.isNotEmpty 
+        ? '$_location$coords' 
+        : '位置获取中...';
+    return '$_userName向你发送了TA的实时位置，TA可能需要你的帮助！'
+        '请及时与TA联系并关注TA的动态行踪。'
+        '当前位置：$locationWithCoords'
+        '(你是TA的紧急联系人，因此收到了此信息)';
   }
 
   Future<void> _sendMessage() async {
@@ -90,7 +95,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
 
     final coords = (lat != null && lng != null)
         ? '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}'
-        : '';
+        : null;
 
     final success = await _sosService.sendSosSms(
       phones: phones,

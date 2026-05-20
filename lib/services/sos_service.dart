@@ -306,9 +306,14 @@ class SosService {
     required List<String> phones,
     required String name,
     required String location,
-    required String coords,
+    String? coords,
   }) async {
     try {
+      // 将坐标信息合并到位置描述中
+      final locationWithCoords = coords != null && coords.isNotEmpty
+          ? '$location（$coords）'
+          : location;
+
       final response = await http.post(
         Uri.parse(_edgeFunctionUrl),
         headers: {
@@ -318,8 +323,7 @@ class SosService {
         body: json.encode({
           'phones': phones,
           'name': name,
-          'location': location,
-          'coords': coords,
+          'location': locationWithCoords,
         }),
       );
 
@@ -377,7 +381,7 @@ class SosService {
       final name = await getUserDisplayName();
       final coords = (latitude != null && longitude != null)
           ? '${latitude.toStringAsFixed(6)},${longitude.toStringAsFixed(6)}'
-          : '';
+          : null;
       tasks.add(sendSosSms(
         phones: phones,
         name: name,
