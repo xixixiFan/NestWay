@@ -59,3 +59,22 @@ lib/
 - [SETUP.md](SETUP.md) — 开发环境搭建指南
 - [docs/FEATURE_COMPLETION_REPORT.md](docs/FEATURE_COMPLETION_REPORT.md) — 功能完成度分析报告
 - [MVP_测试指南.md](MVP_测试指南.md) — MVP 测试指南
+- [docs/视频播放问题解决方案.md](docs/视频播放问题解决方案.md) — SOS视频播放问题解决方案
+- [docs/VIDEO_PLAYBACK_TROUBLESHOOTING.md](docs/VIDEO_PLAYBACK_TROUBLESHOOTING.md) — 视频播放故障排查指南（英文）
+
+## 常见问题
+
+### SOS视频播放无法加载？
+
+如果安装APK后视频播放功能无法正常工作，请执行以下快速修复：
+
+```bash
+# Windows PowerShell
+powershell -ExecutionPolicy Bypass -File scripts/fix_video_issue.ps1
+
+# Linux/Mac
+chmod +x scripts/fix_video_issue.sh
+./scripts/fix_video_issue.sh
+```
+
+详细说明请查看 [视频播放问题解决方案](docs/视频播放问题解决方案.md)

@@ -198,17 +198,14 @@ class _SosPageState extends State<SosPage> {
             );
           },
         ),
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'SOS',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w400,
-            ),
+        title: const Text(
+          'SOS',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w400,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 0,
@@ -239,8 +236,9 @@ class _SosPageState extends State<SosPage> {
                 ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
+                child: Center(
+                  child: Column(
+                    children: [
                     GestureDetector(
                       onLongPressStart: (_) => _startLongPress(),
                       onLongPressEnd: (_) => _cancelLongPress(),
@@ -303,9 +301,10 @@ class _SosPageState extends State<SosPage> {
                       onTap: _playAttentionVideo,
                     ),
                   ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 80),
+              const SizedBox(height: 40),
             ],
           ),
         ),

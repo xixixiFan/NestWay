@@ -21,6 +21,9 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
   String _location = '';
   double? _latitude;
   double? _longitude;
+  
+  // 选中的联系人ID（单选）
+  int? _selectedContactId;
 
   @override
   void initState() {
@@ -28,7 +31,22 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ContactsProvider>().loadContacts();
       _loadUserName();
+      _initializeDefaultContact();
     });
+  }
+  
+  // 初始化默认选中第一个联系人
+  void _initializeDefaultContact() {
+    final contacts = context.read<ContactsProvider>().contacts;
+    if (contacts.isNotEmpty) {
+      final firstContact = contacts.first;
+      final contactId = firstContact['id'] as int?;
+      if (contactId != null) {
+        setState(() {
+          _selectedContactId = contactId;
+        });
+      }
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -42,8 +60,13 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     final coords = (_latitude != null && _longitude != null)
         ? '（${_latitude!.toStringAsFixed(6)}, ${_longitude!.toStringAsFixed(6)}）'
         : '';
-    return '【NestWay】紧急求助！$_userName发起了SOS求助，您是TA的紧急联系人。'
-        '当前位置：$_location$coords。请立即确认TA的安全！';
+    final locationWithCoords = _location.isNotEmpty 
+        ? '$_location$coords' 
+        : '位置获取中...';
+    return '$_userName向你发送了TA的实时位置，TA可能需要你的帮助！'
+        '请及时与TA联系并关注TA的动态行踪。'
+        '当前位置：$locationWithCoords'
+        '(你是TA的紧急联系人，因此收到了此信息)';
   }
 
   Future<void> _sendMessage() async {
@@ -52,6 +75,17 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     final contacts = context.read<ContactsProvider>().contacts;
     if (contacts.isEmpty) {
       _showNoContactsDialog();
+      return;
+    }
+    
+    // 检查是否有选中的联系人
+    if (_selectedContactId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('请选择一个联系人'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
@@ -83,17 +117,32 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
       _step = _SendingStep.sending;
     });
 
-    final phones = contacts
-        .map((c) => c['phone'] as String?)
-        .whereType<String>()
-        .toList();
+    // 只发送给选中的联系人
+    final selectedContact = contacts.firstWhere(
+      (c) => c['id'] == _selectedContactId,
+      orElse: () => {},
+    );
+    
+    final phone = selectedContact['phone'] as String?;
+    if (phone == null) {
+      if (mounted) {
+        setState(() => _step = _SendingStep.idle);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('联系人电话号码无效'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
 
     final coords = (lat != null && lng != null)
         ? '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}'
-        : '';
+        : null;
 
     final success = await _sosService.sendSosSms(
-      phones: phones,
+      phones: [phone],
       name: _userName,
       location: _location,
       coords: coords,
@@ -101,7 +150,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
 
     if (mounted) {
       if (success) {
-        await _showSuccessDialog();
+        await _showSuccessDialog(selectedContact['name'] as String? ?? '联系人');
         Navigator.pushNamedAndRemoveUntil(
           context,
           AppRoutes.sos,
@@ -142,7 +191,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     );
   }
 
-  Future<void> _showSuccessDialog() async {
+  Future<void> _showSuccessDialog(String contactName) async {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -156,19 +205,19 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
           ),
           child: Container(
             padding: const EdgeInsets.all(32),
-            child: const Column(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.check_circle, size: 70, color: Color(0xFF4CAF50)),
-                SizedBox(height: 20),
-                Text(
+                const Icon(Icons.check_circle, size: 70, color: Color(0xFF4CAF50)),
+                const SizedBox(height: 20),
+                const Text(
                   '已发送！',
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Text(
-                  '求助短信已发送给所有紧急联系人',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  '求助短信已发送给 $contactName',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
                 ),
               ],
             ),
@@ -192,14 +241,11 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
           icon: const Icon(Icons.arrow_back, size: 16),
           onPressed: _cancel,
         ),
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '发送求助短信',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
-          ),
+        title: const Text(
+          '发送求助短信',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w400),
         ),
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         titleSpacing: 0,
@@ -234,6 +280,19 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
   }
 
   Widget _buildContactsSection(List<Map<String, dynamic>> contacts) {
+    // 确保在联系人加载后初始化默认选中
+    if (contacts.isNotEmpty && _selectedContactId == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final firstContact = contacts.first;
+        final contactId = firstContact['id'] as int?;
+        if (contactId != null && mounted) {
+          setState(() {
+            _selectedContactId = contactId;
+          });
+        }
+      });
+    }
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -288,50 +347,98 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
               ),
             )
           else
-            ...contacts.asMap().entries.map((entry) {
-              final contact = entry.value;
-              final name = contact['name'] as String? ?? '';
-              final phone = contact['phone'] as String? ?? '';
-              return Container(
-                margin: EdgeInsets.only(top: entry.key == 0 ? 0 : 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFAFAFA),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!, width: 1),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  isExpanded: true,
+                  value: _selectedContactId,
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  dropdownColor: Colors.white,
                   borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Color(0xFFFFF9C4),
-                      child:
-                          Icon(Icons.person, size: 18, color: Colors.black54),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  items: contacts.map((contact) {
+                    final name = contact['name'] as String? ?? '';
+                    final phone = contact['phone'] as String? ?? '';
+                    final contactId = contact['id'] as int?;
+                    final sortOrder = contact['sort_order'] as int? ?? 0;
+                    
+                    return DropdownMenuItem<int>(
+                      value: contactId,
+                      child: Row(
                         children: [
-                          Text(
-                            name,
-                            style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500),
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: const Color(0xFFFFF9C4),
+                            child: sortOrder == 1
+                                ? const Icon(Icons.star, size: 16, color: Colors.black54)
+                                : const Icon(Icons.person, size: 16, color: Colors.black54),
                           ),
-                          Text(
-                            phone,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (sortOrder == 1) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFE066),
+                                          borderRadius: BorderRadius.circular(3),
+                                        ),
+                                        child: const Text(
+                                          '顺位1',
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                Text(
+                                  phone,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const Icon(Icons.check_circle_outline,
-                        size: 20, color: Color(0xFFFFE066)),
-                  ],
+                    );
+                  }).toList(),
+                  onChanged: (int? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedContactId = newValue;
+                      });
+                    }
+                  },
                 ),
-              );
-            }),
+              ),
+            ),
         ],
       ),
     );
