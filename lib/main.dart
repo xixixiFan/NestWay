@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'pages/home/home_page.dart';  // 导入首页
+import 'pages/profile/profile_page.dart';
 
 void main() => runApp(const MyApp());
 
@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: '栖途',
       theme: ThemeData(primarySwatch: Colors.pink),
-      home: const HomePage(),   // 将首页作为入口
+      home: const ProfilePage(),   // 临时显示个人主页
     );
   }
 }

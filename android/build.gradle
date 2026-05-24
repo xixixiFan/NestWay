@@ -1,3 +1,16 @@
+buildscript {
+    ext.kotlin_version = '1.9.0'   // 与 settings.gradle 中的 Kotlin 版本保持一致
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.1'   // 升级到 8.2.1
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
 allprojects {
     repositories {
         google()

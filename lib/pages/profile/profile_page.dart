@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../mock/mock_user.dart';
 import '../../mock/mock_contacts.dart';
+import '../home/home_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -15,7 +18,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  // 底部导航栏当前选中项（0: 预警, 1: SOS, 2: 我的）
+  File? _avatarImage;
+  final String _defaultAvatarUrl = mockUser['avatar_url'] as String? ?? '';
+
   int _currentNavIndex = 2;
 
   @override
@@ -23,8 +28,18 @@ class _ProfilePageState extends State<ProfilePage> {
     super.initState();
     _userName = mockUser['name'] as String? ?? '用户';
     _contacts = List<Map<dynamic, dynamic>>.from(
-      mockContacts.map((c) => Map<dynamic, dynamic>.from(c))
+        mockContacts.map((c) => Map<dynamic, dynamic>.from(c))
     );
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _avatarImage = File(pickedFile.path);
+      });
+    }
   }
 
   int calculateDays(String createdAt) {
@@ -116,20 +131,26 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
-  // 底部导航栏点击处理（静态展示暂不跳转）
   void _onNavTap(int index) {
     setState(() {
       _currentNavIndex = index;
     });
-    // 如需实际跳转，可在此添加 Navigator.push 或路由跳转
-    // 例如：if (index == 0) Navigator.pushNamed(context, '/destination');
+    if (index == 0) {
+      // 预警：跳转到目的地预警首页
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      ).then((_) {
+        if (mounted) setState(() => _currentNavIndex = 2);
+      });
+    } else if (index == 1) {
+      // SOS 功能待队友实现，暂时无操作，重置索引
+      setState(() => _currentNavIndex = 2);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = mockUser;
-    final avatarUrl = user['avatar_url'] as String? ?? '';
-
     return Scaffold(
       backgroundColor: const Color(0xFFEDE7F6),
       body: SafeArea(
@@ -142,9 +163,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 10),
                     const Text("我的", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
-                    _buildUserCard(avatarUrl),
+                    _buildUserCard(),
                     const SizedBox(height: 16),
-                    _buildGuardCard(user),
+                    _buildGuardCard(mockUser),
                     const SizedBox(height: 16),
                     _buildContactsCard(),
                     const SizedBox(height: 16),
@@ -154,7 +175,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
-            // 底部导航栏（静态展示，含预警、SOS、我的）
             BottomNavigationBar(
               currentIndex: _currentNavIndex,
               onTap: _onNavTap,
@@ -183,18 +203,27 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildUserCard(String avatarUrl) {
+  Widget _buildUserCard() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(16),
       decoration: _cardStyle(),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.pinkAccent,
-            backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
+          GestureDetector(
+            onTap: _pickImageFromGallery,
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.pinkAccent,
+              backgroundImage: _avatarImage != null
+                  ? FileImage(_avatarImage!)
+                  : (_defaultAvatarUrl.isNotEmpty
+                  ? NetworkImage(_defaultAvatarUrl)
+                  : null) as ImageProvider?,
+              child: (_avatarImage == null && _defaultAvatarUrl.isEmpty)
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -230,7 +259,10 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: _cardStyle(),
       child: Row(
         children: [
-          const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.shield, color: Colors.black)),
+          const CircleAvatar(
+            backgroundColor: Colors.amber,
+            child: Icon(Icons.shield, color: Colors.black),
+          ),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +273,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const Spacer(),
-          const Icon(Icons.chevron_right),
         ],
       ),
     );
@@ -255,7 +286,11 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Column(
         children: [
           Row(
-            children: const [Text("紧急联系人"), Spacer(), Text("管理", style: TextStyle(color: Colors.grey))],
+            children: const [
+              Text("紧急联系人"),
+              Spacer(),
+              Text("管理", style: TextStyle(color: Colors.grey))
+            ],
           ),
           const SizedBox(height: 12),
           ..._contacts.asMap().entries.map((entry) {

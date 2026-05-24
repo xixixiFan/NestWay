@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.2.0
+  image_picker: ^1.0.5   # 用于从相册选择头像
 
 dev_dependencies:
   flutter_test:
@@ -18,4 +19,3 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-

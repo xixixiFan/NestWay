@@ -11,20 +11,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> hotDestinations = [
-    '长沙橘子洲头',
-    '北京故宫',
-    '深圳人才公园',
-    '长白山',
-    '上海迪士尼',
-    '香港迪士尼',
+  // 热门城市列表（自动换行）
+  final List<String> hotCities = [
+    '深圳', '长沙', '北京', '香港',
+    '杭州', '苏州', '天津', '洛阳',
+    '哈尔滨', '上海',
   ];
 
-  void _searchDestination(String destination) {
+  void _searchCity(String city) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DestinationSafetyPage(cityName: destination),
+        builder: (context) => DestinationSafetyPage(cityName: city),
       ),
     );
   }
@@ -48,11 +46,10 @@ class _HomePageState extends State<HomePage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 24),
-            // 顶部：爱心 + 栖途 + 右侧两行标语（爱心和栖途垂直居中）
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center, // 垂直居中
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Icon(Icons.favorite, color: Colors.black, size: 32),
                   const SizedBox(width: 8),
@@ -81,7 +78,6 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 32),
-            // 三个功能卡片（上下排列）
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -107,14 +103,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 32),
-            // 搜索栏
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: '搜索城市或目的地',
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                  hintText: '搜索城市或具体目的地',
+                  prefixIcon: IconButton(
+                    icon: const Icon(Icons.search, color: Colors.grey),
+                    onPressed: () => _searchCity(_searchController.text),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                     borderSide: BorderSide.none,
@@ -122,24 +122,23 @@ class _HomePageState extends State<HomePage> {
                   filled: true,
                   fillColor: Colors.white,
                 ),
-                onSubmitted: _searchDestination,
+                onSubmitted: _searchCity,
               ),
             ),
             const SizedBox(height: 20),
-            // 热门目的地标题
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text('热门目的地', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              child: Text('热门城市', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 12),
-            // 热门目的地标签
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Wrap(
                 spacing: 12,
                 runSpacing: 12,
-                children: hotDestinations.map((destination) => GestureDetector(
-                  onTap: () => _searchDestination(destination),
+                alignment: WrapAlignment.start,
+                children: hotCities.map((city) => GestureDetector(
+                  onTap: () => _searchCity(city),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
@@ -152,7 +151,11 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                    child: Text(destination, style: const TextStyle(fontSize: 14)),
+                    child: Text(
+                      city,
+                      style: const TextStyle(fontSize: 14),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 )).toList(),
               ),
@@ -186,7 +189,7 @@ class _HomePageState extends State<HomePage> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 32, color: const Color(0xFFE91E63)),
+          Icon(icon, size: 32, color: const Color(0xFF8022FF)),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
