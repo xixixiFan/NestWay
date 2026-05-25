@@ -12,10 +12,10 @@ dependencies:
   video_player: ^2.11.0
   http: ^1.2.0
   supabase_flutter: ^2.10.0
-  sign_in_with_apple: ^8.0.0
+  # sign_in_with_apple: ^8.0.0   # 暂时注释，因为需要更高 Dart SDK 版本
   provider: ^6.1.2
   geolocator: ^13.0.2
-
+  image_picker: ^1.0.5   # 你的个人主页需要
 
 dev_dependencies:
   flutter_test:
