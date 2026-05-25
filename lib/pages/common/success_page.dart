@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
+import '../../services/escort_service.dart';
 import '../../routes/app_routes.dart';
 
 class SuccessPage extends StatefulWidget {
@@ -47,6 +48,9 @@ class _SuccessPageState extends State<SuccessPage> {
       endPoint: location,
     );
 
+    // 写入数据库：护送完成
+    await EscortService().completeEscort(endPoint: location);
+
     _locationService.reset();
   }
 
@@ -63,34 +67,20 @@ class _SuccessPageState extends State<SuccessPage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        const Text(
-                          '护送完成',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
+                  const Text(
+                    '护送完成',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.settings_outlined,
-                      color: Colors.black54,
+                  const SizedBox(width: 8),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF10B981),
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ],

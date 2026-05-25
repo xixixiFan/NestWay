@@ -7,16 +7,18 @@ import 'package:http/http.dart' as http;
 class LocationResult {
   final double? latitude;
   final double? longitude;
-  final double? accuracy; // GPS accuracy radius in meters, smaller is better
+  final double? accuracy;
   final String? address;
-  final String? errorMessage; // null means success
-  final bool needOpenGps; // true = UI should guide user to enable GPS
+  final String? city;           // 城市名，如"深圳市"
+  final String? errorMessage;
+  final bool needOpenGps;
 
   LocationResult({
     this.latitude,
     this.longitude,
     this.accuracy,
     this.address,
+    this.city,
     this.errorMessage,
     this.needOpenGps = false,
   });
@@ -59,8 +61,8 @@ class LocationService {
   factory LocationService() => _instance;
   LocationService._internal();
 
-  static const _timeLimit = Duration(seconds: 25);
-  static const _sampleCount = 3;
+  static const _timeLimit = Duration(seconds: 10);
+  static const _sampleCount = 2;
   static const _amapApiKey = '89ff90f769765ecd5f68e2cb48e283cb';
 
   /// Main entry: get precise location with multi-sampling.
@@ -161,27 +163,28 @@ class LocationService {
 
     // 5. Reverse geocode
     print('[定位] 最终坐标: lat=${bestPosition!.latitude.toStringAsFixed(6)} lng=${bestPosition.longitude.toStringAsFixed(6)}');
-    String? address = await _reverseGeocode(
+    final geoResult = await _reverseGeocode(
       bestPosition.latitude,
       bestPosition.longitude,
     );
-    print('[定位] 逆地理编码结果: ${address ?? "(null)"}');
+    print('[定位] 逆地理编码结果: address=${geoResult['address']} city=${geoResult['city']}');
 
     final result = LocationResult(
       latitude: bestPosition.latitude,
       longitude: bestPosition.longitude,
       accuracy: bestPosition.accuracy,
-      address: address,
+      address: geoResult['address'],
+      city: geoResult['city'],
     );
-    print('[定位] === getPreciseLocation 返回: lat=${result.latitude?.toStringAsFixed(6)} lng=${result.longitude?.toStringAsFixed(6)} accuracy=${result.accuracy}m address="${result.address ?? "(null)"}" ===');
+    print('[定位] === getPreciseLocation 返回: lat=${result.latitude?.toStringAsFixed(6)} lng=${result.longitude?.toStringAsFixed(6)} accuracy=${result.accuracy}m address="${result.address ?? "(null)"}" city="${result.city ?? "(null)"}" ===');
     return result;
   }
 
-  Future<String?> _reverseGeocode(double lat, double lng) async {
+  Future<Map<String, String?>> _reverseGeocode(double lat, double lng) async {
     print('[逆地理] 请求高德API: lat=$lat lng=$lng');
     try {
       final url = Uri.parse(
-        'https://restapi.amap.com/v3/geocode/regeo?key=$_amapApiKey&location=$lng,$lat&extensions=base',
+        'https://restapi.amap.com/v3/geocode/regeo?key=$_amapApiKey&location=$lng,$lat&extensions=all',
       );
       final response = await http.get(url);
       print('[逆地理] HTTP ${response.statusCode}');
@@ -189,9 +192,42 @@ class LocationService {
         final data = json.decode(response.body);
         print('[逆地理] API status=${data['status']}');
         if (data['status'] == '1' && data['regeocode'] != null) {
-          final addr = data['regeocode']['formatted_address'] as String?;
-          print('[逆地理] 地址: $addr');
-          return addr;
+          final regeocode = data['regeocode'] as Map<String, dynamic>?;
+          String? shortAddress;
+          String? city;
+
+          if (regeocode != null) {
+            final addressComponent = regeocode['addressComponent'] as Map<String, dynamic>?;
+
+            if (addressComponent != null) {
+              // 提取城市名（去掉"市"字更简洁）
+              final rawCity = addressComponent['city'] as String?;
+              city = rawCity?.replaceAll('市', '');
+
+              final district = addressComponent['district'] as String? ?? '';
+              final township = addressComponent['township'] as String? ?? '';
+              final street = addressComponent['streetNumber']?['street'] as String? ?? '';
+
+              if (district.isNotEmpty) {
+                shortAddress = district;
+                if (township.isNotEmpty && township != district) {
+                  shortAddress = '$district$township';
+                } else if (street.isNotEmpty) {
+                  shortAddress = '$district$street';
+                }
+              }
+            }
+
+            if (shortAddress == null || shortAddress.isEmpty) {
+              final formatted = regeocode['formatted_address'] as String?;
+              if (formatted != null) {
+                shortAddress = _shortenAddress(formatted);
+              }
+            }
+          }
+
+          print('[逆地理] 简洁地址: $shortAddress, 城市: $city');
+          return {'address': shortAddress, 'city': city};
         }
         print('[逆地理] API返回异常: ${data['info']}');
       }
@@ -199,7 +235,32 @@ class LocationService {
       print('[逆地理] 异常: $e');
     }
     print('[逆地理] 返回 null');
-    return null;
+    return {'address': null, 'city': null};
+  }
+
+  /// 截取简洁地址：去掉省市区前缀，保留街道级别信息
+  String _shortenAddress(String fullAddress) {
+    // 常见前缀模式：省/市/区/县
+    final patterns = [
+      RegExp(r'^[^市]+市'),  // 匹配到"xx市"
+      RegExp(r'^[^区]+区'),  // 匹配到"xx区"
+      RegExp(r'^[^县]+县'),  // 匹配到"xx县"
+    ];
+    
+    String result = fullAddress;
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(result);
+      if (match != null && match.end < result.length) {
+        result = result.substring(match.end);
+      }
+    }
+    
+    // 如果结果太长，再截取前20个字符
+    if (result.length > 20) {
+      result = '${result.substring(0, 20)}...';
+    }
+    
+    return result.isEmpty ? fullAddress : result;
   }
 }
 

@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../models/escort_config.dart';
 import '../../routes/app_routes.dart';
 import '../../mock/mock_contacts.dart';
 import '../../services/location_service.dart';
+import '../../services/escort_service.dart';
 import 'progress_page.dart';
 
 class EscortPage extends StatefulWidget {
@@ -80,7 +80,7 @@ class _EscortPageState extends State<EscortPage> {
             // 出发地
             _buildInputCard(
               title: '出发地',
-              icon: Icons.location_pin,
+              icon: null,
               child: Row(
                 children: [
                   _isLoadingLocation
@@ -134,15 +134,19 @@ class _EscortPageState extends State<EscortPage> {
             // 目的地
             _buildInputCard(
               title: '目的地',
-              icon: Icons.search,
+              icon: null,
               child: TextField(
                 controller: _destinationController,
                 decoration: InputDecoration(
-                  border: InputBorder.none,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    borderSide: BorderSide.none,
+                  ),
                   hintText: '输入目的地',
-                  hintStyle: const TextStyle(color: Colors.black54),
+                  hintStyle: const TextStyle(color: Colors.black38),
                   filled: true,
                   fillColor: const Color(0xFFF6F3F2),
+                  prefixIcon: const Icon(Icons.search, color: Colors.black38, size: 20),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
               ),
@@ -153,7 +157,7 @@ class _EscortPageState extends State<EscortPage> {
             // 预计时间
             _buildInputCard(
               title: '预计到达时间',
-              icon: Icons.access_time,
+              icon: null,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -276,10 +280,13 @@ class _EscortPageState extends State<EscortPage> {
                             ],
                           ),
                         ),
-                        const Icon(
-                          Icons.settings,
-                          color: Colors.black38,
-                          size: 20,
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
+                          child: const Icon(
+                            Icons.settings,
+                            color: Colors.black38,
+                            size: 20,
+                          ),
                         ),
                       ],
                     )
@@ -288,70 +295,69 @@ class _EscortPageState extends State<EscortPage> {
 
             const SizedBox(height: 48),
 
-            // 开始护送按钮 (带模糊效果)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Container(
-                  color: Colors.white.withOpacity(0.7),
-                  padding: const EdgeInsets.all(24),
-                  child: GestureDetector(
-                    onTap: (_currentLocation == null || _currentLocation!.latitude == 0)
-                        ? null
-                        : () async {
-                            final escortId = DateTime.now().millisecondsSinceEpoch.toString();
-                            await _locationService.startTracking();
-                            await _locationService.reportEscortStart(
-                              escortId: escortId,
-                              destination: _destinationController.text.isEmpty
-                                  ? '未指定目的地'
-                                  : _destinationController.text,
-                              estimatedMinutes: _selectedMinutes,
-                              startPoint: _currentLocation!,
-                            );
-                            if (mounted) {
-                              final config = EscortConfig(
-                                escortId: escortId,
-                                destination: _destinationController.text.isEmpty
-                                    ? '未指定目的地'
-                                    : _destinationController.text,
-                                estimatedMinutes: _selectedMinutes,
-                                startPoint: _currentLocation!,
-                                contacts: mockContacts,
-                              );
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ProgressPage(config: config),
-                                ),
-                              );
-                            }
-                          },
-                    child: Opacity(
-                      opacity: _currentLocation == null ? 0.5 : 1.0,
-                      child: Container(
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFE066),
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFFFE066).withOpacity(0.4),
-                              blurRadius: 15,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            _currentLocation == null ? '正在获取位置...' : '开始护送',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
+            // 开始护送按钮
+            GestureDetector(
+              onTap: (_currentLocation == null || _currentLocation!.latitude == 0)
+                  ? null
+                  : () async {
+                      final escortId = DateTime.now().millisecondsSinceEpoch.toString();
+                      await _locationService.startTracking();
+
+                      final config = EscortConfig(
+                        escortId: escortId,
+                        destination: _destinationController.text.isEmpty
+                            ? '未指定目的地'
+                            : _destinationController.text,
+                        estimatedMinutes: _selectedMinutes,
+                        startPoint: _currentLocation!,
+                        contacts: mockContacts,
+                      );
+
+                      // 写入数据库
+                      await EscortService().startEscort(
+                        escortId: escortId,
+                        destination: config.destination,
+                        estimatedMinutes: _selectedMinutes,
+                        startPoint: _currentLocation!,
+                        contacts: mockContacts,
+                      );
+
+                      await _locationService.reportEscortStart(
+                        escortId: escortId,
+                        destination: config.destination,
+                        estimatedMinutes: _selectedMinutes,
+                        startPoint: _currentLocation!,
+                      );
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProgressPage(config: config),
                           ),
-                        ),
+                        );
+                      }
+                    },
+              child: Opacity(
+                opacity: _currentLocation == null ? 0.5 : 1.0,
+                child: Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE066),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFE066).withOpacity(0.4),
+                        blurRadius: 15,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      _currentLocation == null ? '正在获取位置...' : '开始护送',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),

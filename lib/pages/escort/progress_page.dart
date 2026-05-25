@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
+import '../../services/sos_service.dart';
 import '../common/timeout_page.dart';
 import '../common/success_page.dart';
 
@@ -149,77 +150,96 @@ class _ProgressPageState extends State<ProgressPage> {
                   // 路径卡片
                   _card(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 左侧图标列：空心圆 + 虚线 + 黄色定位
                           Column(
                             children: [
-                              const Icon(
-                                Icons.circle,
-                                size: 10,
-                                color: Colors.black87,
-                              ),
+                              const SizedBox(height: 4),
                               Container(
-                                height: 32,
-                                width: 2,
-                                color: Colors.grey[300],
-                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.black87,
+                                    width: 2.5,
+                                  ),
+                                ),
+                              ),
+                              // 虚线
+                              SizedBox(
+                                height: 48,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    const dashHeight = 4.0;
+                                    const dashSpace = 3.0;
+                                    final count = (constraints.maxHeight / (dashHeight + dashSpace)).floor();
+                                    return Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: List.generate(count, (_) => Padding(
+                                        padding: const EdgeInsets.only(bottom: dashSpace),
+                                        child: Container(
+                                          width: 2,
+                                          height: dashHeight,
+                                          color: Colors.grey[400],
+                                        ),
+                                      )),
+                                    );
+                                  },
+                                ),
                               ),
                               const Icon(
                                 Icons.location_on,
-                                size: 16,
+                                size: 22,
                                 color: Color(0xFFFFE066),
                               ),
                             ],
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
+                          // 右侧文字列
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Row(
-                                  children: [
-                                    if (_currentLocation != null)
-                                      const Icon(
-                                        Icons.location_on,
-                                        size: 14,
-                                        color: Color(0xFF10B981),
-                                      ),
-                                    const SizedBox(width: 4),
-                                    const Text(
-                                      '我的当前位置',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ],
+                                // 出发地
+                                const Text(
+                                  '出发地',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black45,
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                _currentLocation != null
-                                    ? Text(
-                                        _currentLocation!.address ?? '已获取位置',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black54,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      )
-                                    : const Text(
-                                        '正在获取位置...',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.black38,
-                                        ),
-                                      ),
-                                const SizedBox(height: 16),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  '我的当前位置',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+                                // 目的地
+                                const Text(
+                                  '目的地',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black45,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
                                 Text(
                                   widget.config.destination,
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
                                     color: Colors.black87,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -391,7 +411,14 @@ class _ProgressPageState extends State<ProgressPage> {
                               shape: BoxShape.circle,
                             ),
                             child: IconButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                final phone = widget.config.contacts.isNotEmpty
+                                    ? widget.config.contacts[0]['phone'] as String? ?? ''
+                                    : '';
+                                if (phone.isNotEmpty) {
+                                  SosService().makePhoneCall(phone);
+                                }
+                              },
                               icon: const Icon(
                                 Icons.phone,
                                 color: Colors.black54,

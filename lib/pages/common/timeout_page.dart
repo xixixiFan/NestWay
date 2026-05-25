@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
+import '../../services/escort_service.dart';
 import '../../widgets/countdown_ring_painter.dart';
 import '../../widgets/countdown_ended_dialog.dart';
 import 'success_page.dart';
@@ -132,6 +133,9 @@ class _TimeoutPageState extends State<TimeoutPage>
         emergencyContacts: contactNames,
       );
     }
+
+    // 写入数据库：护送超时
+    await EscortService().timeoutEscort(lastLocation: _lastLocation);
 
     if (mounted) {
       CountdownEndedDialog.show(
