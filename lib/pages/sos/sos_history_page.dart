@@ -90,7 +90,10 @@ class _SosHistoryPageState extends State<SosHistoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('求助历史'),
+        title: const Text(
+          '求助历史',
+          style: TextStyle(fontSize: 18),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,

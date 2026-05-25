@@ -191,11 +191,8 @@ class _SosPageState extends State<SosPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 16),
           onPressed: () {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRoutes.home,
-              (route) => false,
-            );
+            // 直接返回上一页（超时页面），不清理路由
+            Navigator.pop(context);
           },
         ),
         title: const Text(

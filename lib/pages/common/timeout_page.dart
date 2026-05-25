@@ -31,9 +31,9 @@ class _TimeoutPageState extends State<TimeoutPage>
 
   late AnimationController _countdownController;
   Timer? _countdownTimer;
-  int _countdownSeconds = 105; // 1:45
+  int _countdownSeconds = 90; // 1:30
   bool _countdownExpired = false;
-  static const int _totalCountdownSeconds = 105;
+  static const int _totalCountdownSeconds = 90;
 
   @override
   void initState() {
@@ -186,25 +186,24 @@ class _TimeoutPageState extends State<TimeoutPage>
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.black54,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.arrow_back, color: Colors.black54),
                     ),
                   ),
-                  const SizedBox(width: 12),
                   const Text(
                     '你还好吗？',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.black87),
                   ),
-                  const Spacer(),
-                  _PulsingDot(),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _PulsingDot(),
+                  ),
                 ],
               ),
             ),
@@ -355,17 +354,23 @@ class _TimeoutPageState extends State<TimeoutPage>
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => SuccessPage(
-                              config: widget.config,
-                              lastLocation: _lastLocation,
+                      onTap: () async {
+                        // 1. 标记护送为 completed 状态
+                        await EscortService().completeEscort(lastLocation: _lastLocation);
+                        
+                        // 2. 跳转成功页
+                        if (mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SuccessPage(
+                                config: widget.config,
+                                lastLocation: _lastLocation,
+                              ),
                             ),
-                          ),
-                          (route) => false,
-                        );
+                            (route) => false,
+                          );
+                        }
                       },
                       child: Container(
                         height: 54,
@@ -395,13 +400,18 @@ class _TimeoutPageState extends State<TimeoutPage>
                       onTap: _isReporting
                           ? null
                           : () async {
+                              setState(() => _isReporting = true);
+                              
+                              // 1. 标记护送为 SOS 状态
+                              await EscortService().markAsSos(lastLocation: _lastLocation);
+                              
+                              // 2. 报告超时
                               await _reportTimeout();
+                              
                               if (mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
-                                  context,
-                                  '/sos',
-                                  (route) => false,
-                                );
+                                setState(() => _isReporting = false);
+                                // 3. 跳转 SOS 页面，保留路由栈（不用 pushAndRemoveUntil）
+                                Navigator.pushNamed(context, '/sos');
                               }
                             },
                       child: Opacity(

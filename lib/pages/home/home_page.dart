@@ -49,22 +49,17 @@ class _HomePageState extends State<HomePage> {
 
       if (active != null) {
         // 恢复未完成的护送
-        final contacts = (active['emergency_contacts'] as List<dynamic>?)
-                ?.map((e) => {'name': e as String, 'phone': ''})
-                .toList() ??
-            [];
-
         final config = EscortConfig(
-          escortId: active['escort_id'] as String? ?? '',
-          destination: active['destination'] as String? ?? '未指定目的地',
-          estimatedMinutes: active['estimated_minutes'] as int? ?? 30,
+          escortId: active['id'].toString(),
+          destination: active['end_location'] as String? ?? '未指定目的地',
+          estimatedMinutes: active['estimated_duration'] as int? ?? 30,
           startPoint: LocationPoint(
-            latitude: (active['start_latitude'] as num?)?.toDouble() ?? 0,
-            longitude: (active['start_longitude'] as num?)?.toDouble() ?? 0,
+            latitude: (active['last_location_lat'] as num?)?.toDouble() ?? 0,
+            longitude: (active['last_location_lng'] as num?)?.toDouble() ?? 0,
             timestamp: DateTime.tryParse(active['started_at'] as String? ?? '') ?? DateTime.now(),
-            address: active['start_address'] as String?,
+            address: active['start_location'] as String?,
           ),
-          contacts: contacts,
+          contacts: const [],
         );
 
         // 弹出提示，让用户选择恢复还是新建
@@ -104,6 +99,10 @@ class _HomePageState extends State<HomePage> {
       }
 
       // 无未完成护送，或用户选择新建
+      if (active != null) {
+        // 用户选择新建，先把旧记录标为 timeout
+        await EscortService().abandonActiveEscort();
+      }
       Navigator.pushNamed(context, AppRoutes.escort);
     } finally {
       if (mounted) setState(() => _isCheckingEscort = false);

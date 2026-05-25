@@ -65,22 +65,22 @@ class _SuccessPageState extends State<SuccessPage> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
                   const Text(
                     '护送完成',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.black87),
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
-                      shape: BoxShape.circle,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF10B981),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ],
@@ -197,8 +197,8 @@ class _SuccessPageState extends State<SuccessPage> {
                       onTap: () {
                         Navigator.pushNamedAndRemoveUntil(
                           context,
-                          AppRoutes.home,
-                          (route) => false,
+                          AppRoutes.escort,
+                          (route) => route.isFirst,
                         );
                       },
                       child: Padding(

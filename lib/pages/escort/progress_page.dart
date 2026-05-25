@@ -28,14 +28,17 @@ class _ProgressPageState extends State<ProgressPage> {
   @override
   void initState() {
     super.initState();
+    print('[ProgressPage] initState() 被调用');
     _remainingMinutes = widget.config.estimatedMinutes;
     _remainingSeconds = 0;
+    print('[ProgressPage] 初始倒计时: $_remainingMinutes分$_remainingSeconds秒');
     _startTimer();
     _startLocationTracking();
   }
 
   @override
   void dispose() {
+    print('[ProgressPage] dispose() 被调用');
     _timer?.cancel();
     _locationTimer?.cancel();
     _locationService.stopTracking();
@@ -43,6 +46,7 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   void _startTimer() {
+    print('[ProgressPage] _startTimer() 被调用，当前: $_remainingMinutes分$_remainingSeconds秒');
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -52,6 +56,7 @@ class _ProgressPageState extends State<ProgressPage> {
           _remainingMinutes--;
           _remainingSeconds = 59;
         } else {
+          print('[ProgressPage] 倒计时结束，跳转到 TimeoutPage');
           _timer?.cancel();
           _locationTimer?.cancel();
           Navigator.pushReplacement(
@@ -69,6 +74,7 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   void _startLocationTracking() {
+    print('[ProgressPage] _startLocationTracking() 被调用');
     _updateCurrentLocation();
     _locationTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _updateCurrentLocation();
@@ -76,12 +82,15 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 
   Future<void> _updateCurrentLocation() async {
+    print('[ProgressPage] _updateCurrentLocation() 被调用');
     final location = await _locationService.recordCurrentPosition();
     if (location != null && mounted) {
+      print('[ProgressPage] 更新位置: ${location.address}');
       setState(() {
         _currentLocation = location;
       });
       _reportCount++;
+      print('[ProgressPage] 已上报位置: $_reportCount次');
       await _locationService.reportLocationToServer(
         escortId: widget.config.escortId,
         lat: location.latitude,
@@ -100,6 +109,7 @@ class _ProgressPageState extends State<ProgressPage> {
 
   @override
   Widget build(BuildContext context) {
+    print('[ProgressPage] build() 被调用，当前: $_remainingMinutes分$_remainingSeconds秒');
     return Scaffold(
       backgroundColor: const Color(0xFFF3F0FF),
       body: SafeArea(
@@ -110,30 +120,29 @@ class _ProgressPageState extends State<ProgressPage> {
             // 顶部导航栏
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(
-                      Icons.arrow_back,
-                      color: Colors.black54,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.arrow_back, color: Colors.black54),
                     ),
                   ),
-                  const SizedBox(width: 12),
                   const Text(
                     '护送进行中',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
+                    style: TextStyle(fontSize: 18, color: Colors.black87),
                   ),
-                  const Spacer(),
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF10B981),
-                      shape: BoxShape.circle,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF10B981),
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
                 ],
@@ -438,6 +447,7 @@ class _ProgressPageState extends State<ProgressPage> {
               children: [
                 GestureDetector(
                   onTap: () {
+                    print('[ProgressPage] 点击暂停/继续按钮，当前: $_isPaused');
                     setState(() {
                       _isPaused = !_isPaused;
                       if (_isPaused) {
@@ -463,6 +473,7 @@ class _ProgressPageState extends State<ProgressPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GestureDetector(
                     onTap: () {
+                      print('[ProgressPage] 点击安全打卡');
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(

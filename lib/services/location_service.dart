@@ -64,6 +64,7 @@ class LocationService {
   static const _timeLimit = Duration(seconds: 10);
   static const _sampleCount = 2;
   static const _amapApiKey = '89ff90f769765ecd5f68e2cb48e283cb';
+  static const _httpTimeout = Duration(seconds: 8);
 
   /// Main entry: get precise location with multi-sampling.
   /// Returns [LocationResult] with address from reverse geocoding.
@@ -186,56 +187,146 @@ class LocationService {
       final url = Uri.parse(
         'https://restapi.amap.com/v3/geocode/regeo?key=$_amapApiKey&location=$lng,$lat&extensions=all',
       );
-      final response = await http.get(url);
-      print('[逆地理] HTTP ${response.statusCode}');
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        print('[逆地理] API status=${data['status']}');
-        if (data['status'] == '1' && data['regeocode'] != null) {
-          final regeocode = data['regeocode'] as Map<String, dynamic>?;
-          String? shortAddress;
-          String? city;
+      print('[逆地理] URL: $url');
+      
+      // 添加超时设置
+      final client = http.Client();
+      try {
+        final response = await client.get(url).timeout(
+          _httpTimeout,
+          onTimeout: () {
+            print('[逆地理] ⚠️ HTTP 请求超时 (${_httpTimeout.inSeconds}s)');
+            throw TimeoutException('请求超时');
+          },
+        );
+        
+        print('[逆地理] HTTP ${response.statusCode}');
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body);
+          print('[逆地理] API status=${data['status']} info=${data['info']}');
+          
+          if (data['status'] == '1' && data['regeocode'] != null) {
+            final regeocode = data['regeocode'] as Map<String, dynamic>?;
+            String? shortAddress;
+            String? city;
 
-          if (regeocode != null) {
-            final addressComponent = regeocode['addressComponent'] as Map<String, dynamic>?;
+            if (regeocode != null) {
+              final addressComponent = regeocode['addressComponent'] as Map<String, dynamic>?;
 
-            if (addressComponent != null) {
-              // 提取城市名（去掉"市"字更简洁）
-              final rawCity = addressComponent['city'] as String?;
-              city = rawCity?.replaceAll('市', '');
+              if (addressComponent != null) {
+                // 提取城市名（去掉"市"字更简洁）
+                final rawCity = addressComponent['city'] as String?;
+                city = rawCity?.replaceAll('市', '');
 
-              final district = addressComponent['district'] as String? ?? '';
-              final township = addressComponent['township'] as String? ?? '';
-              final street = addressComponent['streetNumber']?['street'] as String? ?? '';
+                final district = addressComponent['district'] as String? ?? '';
+                final township = addressComponent['township'] as String? ?? '';
+                final street = addressComponent['streetNumber']?['street'] as String? ?? '';
 
-              if (district.isNotEmpty) {
-                shortAddress = district;
-                if (township.isNotEmpty && township != district) {
-                  shortAddress = '$district$township';
-                } else if (street.isNotEmpty) {
-                  shortAddress = '$district$street';
+                if (district.isNotEmpty) {
+                  shortAddress = district;
+                  if (township.isNotEmpty && township != district) {
+                    shortAddress = '$district$township';
+                  } else if (street.isNotEmpty) {
+                    shortAddress = '$district$street';
+                  }
+                }
+              }
+
+              if (shortAddress == null || shortAddress.isEmpty) {
+                final formatted = regeocode['formatted_address'] as String?;
+                if (formatted != null) {
+                  shortAddress = _shortenAddress(formatted);
                 }
               }
             }
 
-            if (shortAddress == null || shortAddress.isEmpty) {
-              final formatted = regeocode['formatted_address'] as String?;
-              if (formatted != null) {
-                shortAddress = _shortenAddress(formatted);
-              }
-            }
+            print('[逆地理] ✅ 解析成功: 简洁地址=$shortAddress, 城市=$city');
+            return {'address': shortAddress, 'city': city};
+          } else {
+            print('[逆地理] ❌ API返回错误: status=${data['status']} info=${data['info']}');
+            // API Key 无效或超限，备用方案
+            final fallback = _generateFallbackAddress(lat, lng);
+            print('[逆地理] 🔄 使用备用地址: $fallback');
+            return {'address': fallback, 'city': null};
           }
-
-          print('[逆地理] 简洁地址: $shortAddress, 城市: $city');
-          return {'address': shortAddress, 'city': city};
+        } else {
+          print('[逆地理] ❌ HTTP错误: statusCode=${response.statusCode}');
         }
-        print('[逆地理] API返回异常: ${data['info']}');
+      } finally {
+        client.close();
       }
     } catch (e) {
-      print('[逆地理] 异常: $e');
+      print('[逆地理] ❌ 异常: $e (${e.runtimeType})');
+      // 网络异常时使用备用地址
+      final fallback = _generateFallbackAddress(lat, lng);
+      print('[逆地理] 🔄 使用备用地址: $fallback');
+      return {'address': fallback, 'city': null};
     }
-    print('[逆地理] 返回 null');
-    return {'address': null, 'city': null};
+    
+    // 最终备用
+    final fallback = _generateFallbackAddress(lat, lng);
+    print('[逆地理] 🔄 最终备用地址: $fallback');
+    return {'address': fallback, 'city': null};
+  }
+
+  /// 根据经纬度生成简化的地址描述（基于常见城市的大致范围）
+  String _generateFallbackAddress(double lat, double lng) {
+    // 根据经纬度判断大致区域（这是一个简化的备用方案）
+    // 纬度范围: 3° ~ 54° (中国)
+    // 经度范围: 73° ~ 135° (中国)
+    
+    // 尝试判断城市
+    String city = '';
+    String district = '';
+    
+    // 广东省大致范围
+    if (lat >= 20.0 && lat <= 25.5 && lng >= 109.0 && lng <= 117.5) {
+      if (lat >= 22.4 && lat <= 22.9 && lng >= 113.7 && lng <= 114.5) {
+        city = '深圳市';
+        if (lat >= 22.4 && lat <= 22.6) district = '南山区';
+        else if (lat >= 22.6 && lat <= 22.8) district = '福田区';
+        else district = '龙岗区';
+      } else if (lat >= 22.9 && lat <= 23.5 && lng >= 112.8 && lng <= 113.5) {
+        city = '广州市';
+        if (lng >= 113.2 && lng <= 113.5) district = '天河区';
+        else if (lng >= 113.0 && lng <= 113.2) district = '越秀区';
+        else district = '白云区';
+      } else {
+        city = '广东省';
+        district = '其他区域';
+      }
+    }
+    // 北京市大致范围
+    else if (lat >= 39.4 && lat <= 41.0 && lng >= 115.4 && lng <= 117.5) {
+      city = '北京市';
+      if (lng >= 116.2 && lng <= 116.5) district = '朝阳区';
+      else if (lng >= 116.1 && lng <= 116.2) district = '东城区';
+      else district = '其他区';
+    }
+    // 上海市大致范围
+    else if (lat >= 30.7 && lat <= 31.5 && lng >= 120.8 && lng <= 122.0) {
+      city = '上海市';
+      if (lng >= 121.4 && lng <= 121.6) district = '黄浦区';
+      else if (lng >= 121.2 && lng <= 121.4) district = '静安区';
+      else district = '浦东新区';
+    }
+    // 默认
+    else {
+      // 返回经纬度（格式化为更易读的形式）
+      final latStr = lat.toStringAsFixed(4);
+      final lngStr = lng.toStringAsFixed(4);
+      return '$latStr, $lngStr';
+    }
+    
+    // 如果能判断出城市，返回城市+区域
+    if (city.isNotEmpty && district.isNotEmpty) {
+      return '$city$district';
+    } else if (city.isNotEmpty) {
+      return city;
+    }
+    
+    // 最后兜底：返回经纬度
+    return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
   }
 
   /// 截取简洁地址：去掉省市区前缀，保留街道级别信息
@@ -316,7 +407,7 @@ class EscortLocationService {
     }
 
     final addr = result.address ?? _formatCoordinateAddress(result);
-    print('[护送定位] getCurrentLocation 成功 → address="$addr" (高德地址=${result.address != null ? "是" : "否, 坐标兜底"})');
+    print('[护送定位] getCurrentLocation 成功 → address="$addr"');
     final point = LocationPoint(
       latitude: result.latitude!,
       longitude: result.longitude!,

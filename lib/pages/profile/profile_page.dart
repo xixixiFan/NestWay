@@ -138,17 +138,13 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           },
         ),
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '我的',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
-          ),
+        title: const Text(
+          '我的',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
         ),
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        titleSpacing: 0,
       ),
       body: SafeArea(
         child: Column(

@@ -218,7 +218,11 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('紧急联系人管理'),
+        title: const Text(
+          '紧急联系人管理',
+          style: TextStyle(fontSize: 18),
+        ),
+        centerTitle: true,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
