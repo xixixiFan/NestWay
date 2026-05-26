@@ -49,7 +49,7 @@ class _SuccessPageState extends State<SuccessPage> {
     );
 
     // 写入数据库：护送完成
-    await EscortService().completeEscort(endPoint: location);
+    await EscortService().completeEscort(lastLocation: location);
 
     _locationService.reset();
   }

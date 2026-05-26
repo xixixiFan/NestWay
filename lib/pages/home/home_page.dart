@@ -262,7 +262,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 48),
 
                   // 底部导航栏
-                  const AppBottomNav(currentIndex: 0),
+                  const AppBottomNav(currentIndex: -1),
 
                   const SizedBox(height: 10),
                 ],

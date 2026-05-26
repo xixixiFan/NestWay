@@ -246,15 +246,23 @@ class SosService {
   Future<String> getUserDisplayName() async {
     if (_currentUserId == null) return '用户';
     try {
+      print('🔧 查询用户信息，user_id=$_currentUserId');
+      
       final response = await SupabaseService.instance
           .from('users')
-          .select('name')
+          .select('*')
           .eq('id', _currentUserId!)
-          .single();
-      final name = response['name'] as String?;
-      if (name != null && name.isNotEmpty) return name;
-    } catch (e) {
-      print('获取用户名失败: $e');
+          .maybeSingle();
+      
+      print('🔧 查询结果: $response');
+      
+      if (response != null) {
+        final name = response['name'] as String?;
+        if (name != null && name.isNotEmpty) return name;
+      }
+    } catch (e, stackTrace) {
+      print('❌ 获取用户名失败: $e');
+      print('❌ Stack trace: $stackTrace');
     }
     return '用户';
   }

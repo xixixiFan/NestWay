@@ -33,8 +33,34 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
       _loadUserName();
       _initializeDefaultContact();
     });
+    _autoFetchLocation();
   }
-  
+
+  Future<void> _autoFetchLocation() async {
+    try {
+      setState(() => _step = _SendingStep.locating);
+      final locationData = await _sosService.getCurrentLocationWithAddress();
+      final address = locationData['address'] as String?;
+      final lat = locationData['latitude'] as double?;
+      final lng = locationData['longitude'] as double?;
+
+      if (mounted) {
+        setState(() {
+          if (address != null) {
+            _location = address;
+          }
+          _latitude = lat;
+          _longitude = lng;
+          _step = _SendingStep.idle;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _step = _SendingStep.idle);
+      }
+    }
+  }
+
   // 初始化默认选中第一个联系人
   void _initializeDefaultContact() {
     final contacts = context.read<ContactsProvider>().contacts;
@@ -63,10 +89,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     final locationWithCoords = _location.isNotEmpty 
         ? '$_location$coords' 
         : '位置获取中...';
-    return '$_userName向你发送了TA的实时位置，TA可能需要你的帮助！'
-        '请及时与TA联系并关注TA的动态行踪。'
-        '当前位置：$locationWithCoords'
-        '(你是TA的紧急联系人，因此收到了此信息)';
+    return '【Nestway app】$_userName向你发送了实时位置，需要帮忙！你是TA的紧急联系人，因此收到此信息。当前位置：$locationWithCoords';
   }
 
   Future<void> _sendMessage() async {
@@ -77,8 +100,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
       _showNoContactsDialog();
       return;
     }
-    
-    // 检查是否有选中的联系人
+
     if (_selectedContactId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -89,40 +111,23 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
       return;
     }
 
-    setState(() => _step = _SendingStep.locating);
-
-    final locationData = await _sosService.getCurrentLocationWithAddress();
-    final address = locationData['address'] as String?;
-    final lat = locationData['latitude'] as double?;
-    final lng = locationData['longitude'] as double?;
-
-    if (address == null && lat == null) {
-      if (mounted) {
-        setState(() => _step = _SendingStep.idle);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('获取位置失败，请检查定位权限'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (_location.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('位置尚未获取，请稍候重试'),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
-    setState(() {
-      _location = address ??
-          '${lat!.toStringAsFixed(6)}, ${lng!.toStringAsFixed(6)}';
-      _latitude = lat;
-      _longitude = lng;
-      _step = _SendingStep.sending;
-    });
+    setState(() => _step = _SendingStep.sending);
 
-    // 只发送给选中的联系人
     final selectedContact = contacts.firstWhere(
       (c) => c['id'] == _selectedContactId,
       orElse: () => {},
     );
-    
+
     final phone = selectedContact['phone'] as String?;
     if (phone == null) {
       if (mounted) {
@@ -137,8 +142,8 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
       return;
     }
 
-    final coords = (lat != null && lng != null)
-        ? '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}'
+    final coords = (_latitude != null && _longitude != null)
+        ? '${_latitude!.toStringAsFixed(6)},${_longitude!.toStringAsFixed(6)}'
         : null;
 
     final success = await _sosService.sendSosSms(
@@ -467,7 +472,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              _step == _SendingStep.idle && _location.isEmpty
+              _location.isEmpty
                   ? '获取位置后将自动填入当前位置信息'
                   : _generateMessage(),
               style: TextStyle(
@@ -483,13 +488,14 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
   }
 
   Widget _buildSendButton(List<Map<String, dynamic>> contacts) {
-    final isLoading = _step != _SendingStep.idle;
+    final isLocating = _step == _SendingStep.locating;
+    final isSending = _step == _SendingStep.sending;
     final noContacts = contacts.isEmpty;
 
     String buttonText;
-    if (_step == _SendingStep.locating) {
+    if (isLocating) {
       buttonText = '正在获取位置...';
-    } else if (_step == _SendingStep.sending) {
+    } else if (isSending) {
       buttonText = '正在发送短信...';
     } else {
       buttonText = noContacts ? '请先添加联系人' : '发送求助短信';
@@ -519,18 +525,18 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
         const SizedBox(width: 16),
         Expanded(
           child: InkWell(
-            onTap: (isLoading || noContacts) ? null : _sendMessage,
+            onTap: (isLocating || isSending || noContacts) ? null : _sendMessage,
             borderRadius: BorderRadius.circular(24),
             child: Container(
               height: 48,
               decoration: BoxDecoration(
-                color: (isLoading || noContacts)
+                color: (isLocating || isSending || noContacts)
                     ? const Color(0xFFFFF9C4).withValues(alpha: 0.5)
                     : const Color(0xFFFFF9C4),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Center(
-                child: isLoading
+                child: isSending
                     ? const SizedBox(
                         width: 20,
                         height: 20,
@@ -544,7 +550,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
-                          color: noContacts ? Colors.grey : Colors.black,
+                          color: (isLocating || noContacts) ? Colors.grey : Colors.black,
                         ),
                       ),
               ),

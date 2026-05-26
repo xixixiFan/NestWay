@@ -191,8 +191,11 @@ class _SosPageState extends State<SosPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, size: 16),
           onPressed: () {
-            // 直接返回上一页（超时页面），不清理路由
-            Navigator.pop(context);
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacementNamed(context, AppRoutes.home);
+            }
           },
         ),
         title: const Text(

@@ -179,25 +179,29 @@ class _EscortPageState extends State<EscortPage> {
   }
 
   Future<void> _fetchCurrentLocation() async {
-    setState(() {
-      _isLoadingLocation = true;
-      _locationError = null;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingLocation = true;
+        _locationError = null;
+      });
+    }
 
     final location = await _locationService.getCurrentLocation();
 
-    setState(() {
-      _isLoadingLocation = false;
-      if (location != null && location.latitude != 0 && location.longitude != 0) {
-        _currentLocation = location;
-        _locationError = null;
-      } else if (location != null) {
-        _currentLocation = location;
-        _locationError = location.address ?? '无法获取位置';
-      } else {
-        _locationError = '无法获取位置';
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingLocation = false;
+        if (location != null && location.latitude != 0 && location.longitude != 0) {
+          _currentLocation = location;
+          _locationError = null;
+        } else if (location != null) {
+          _currentLocation = location;
+          _locationError = location.address ?? '无法获取位置';
+        } else {
+          _locationError = '无法获取位置';
+        }
+      });
+    }
   }
 
   bool get _canStart =>

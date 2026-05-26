@@ -51,30 +51,32 @@ class EscortService {
     }
   }
 
-  /// 安全打卡 — UPDATE status = completed
-  Future<bool> completeEscort({LocationPoint? endPoint}) async {
-    if (_currentTaskId == null) {
-      print('[护送DB] ⚠️ 无当前护送记录，跳过 complete');
-      return false;
-    }
+  /// 完成护送
+  Future<void> completeEscort({LocationPoint? lastLocation}) async {
+    if (_currentTaskId == null) return;
 
     try {
+      final taskId = _currentTaskId!;
+      final updateData = <String, dynamic>{
+        'status': 'completed',
+        'completed_at': DateTime.now().toIso8601String(),
+      };
+
+      if (lastLocation != null) {
+        updateData['last_known_lat'] = lastLocation.latitude;
+        updateData['last_known_lng'] = lastLocation.longitude;
+        updateData['last_known_address'] = lastLocation.address;
+      }
+
       await SupabaseService.instance
           .from('escort_tasks')
-          .update({
-            'status': 'completed',
-            'completed_at': DateTime.now().toIso8601String(),
-            if (endPoint != null) 'last_location_lat': endPoint.latitude,
-            if (endPoint != null) 'last_location_lng': endPoint.longitude,
-          })
-          .eq('id', _currentTaskId!);
+          .update(updateData)
+          .eq('id', taskId);
 
-      print('[护送DB] ✅ 护送已完成: id=$_currentTaskId');
+      print('[护送DB] ✅ 护送已完成: id=$taskId');
       _currentTaskId = null;
-      return true;
     } catch (e) {
-      print('[护送DB] ❌ 更新护送完成失败: $e');
-      return false;
+      print('[护送DB] ❌ 完成护送失败: $e');
     }
   }
 
@@ -86,6 +88,7 @@ class EscortService {
     }
 
     try {
+      final taskId = _currentTaskId!;
       await SupabaseService.instance
           .from('escort_tasks')
           .update({
@@ -94,9 +97,9 @@ class EscortService {
             if (lastLocation != null) 'last_location_lat': lastLocation.latitude,
             if (lastLocation != null) 'last_location_lng': lastLocation.longitude,
           })
-          .eq('id', _currentTaskId!);
+          .eq('id', taskId);
 
-      print('[护送DB] ✅ 护送超时已记录: id=$_currentTaskId');
+      print('[护送DB] ✅ 护送超时已记录: id=$taskId');
       _currentTaskId = null;
       return true;
     } catch (e) {
@@ -147,26 +150,27 @@ class EscortService {
         final startedAt = DateTime.tryParse(response['started_at'] as String? ?? '');
         final estimatedDuration = response['estimated_duration'] as int? ?? 0;
         
-        if (startedAt != null) {
+        if (startedAt != null && response['status'] == 'active') {
           final now = DateTime.now();
           final deadline = startedAt.add(Duration(minutes: estimatedDuration));
           
           if (now.isAfter(deadline)) {
             // 已经超时，自动标记为 timeout
             print('[护送DB] 发现过期护送，自动标记为 timeout');
+            final taskId = response['id'] as int;
             await SupabaseService.instance
                 .from('escort_tasks')
                 .update({
                   'status': 'timeout',
                   'completed_at': DateTime.now().toIso8601String(),
                 })
-                .eq('id', response['id']);
+                .eq('id', taskId);
             return null;
           }
         }
         
         _currentTaskId = response['id'] as int?;
-        print('[护送DB] 发现未完成护送: id=$_currentTaskId, destination=${response['end_location']}');
+        print('[护送DB] 发现未完成护送: id=$_currentTaskId, destination=${response['end_location']}, status=${response['status']}');
       }
       return response;
     } catch (e) {
@@ -202,6 +206,7 @@ class EscortService {
     }
 
     try {
+      final taskId = _currentTaskId!;
       final updateData = <String, dynamic>{
         'status': 'sos',
       };
@@ -215,39 +220,11 @@ class EscortService {
       await SupabaseService.instance
           .from('escort_tasks')
           .update(updateData)
-          .eq('id', _currentTaskId);
+          .eq('id', taskId);
 
-      print('[护送DB] ✅ 护送已标记为 SOS: id=$_currentTaskId');
+      print('[护送DB] ✅ 护送已标记为 SOS: id=$taskId');
     } catch (e) {
       print('[护送DB] ❌ 标记 SOS 失败: $e');
-    }
-  }
-
-  /// 完成护送
-  Future<void> completeEscort({LocationPoint? lastLocation}) async {
-    if (_currentTaskId == null) return;
-
-    try {
-      final updateData = <String, dynamic>{
-        'status': 'completed',
-        'completed_at': DateTime.now().toIso8601String(),
-      };
-
-      if (lastLocation != null) {
-        updateData['last_known_lat'] = lastLocation.latitude;
-        updateData['last_known_lng'] = lastLocation.longitude;
-        updateData['last_known_address'] = lastLocation.address;
-      }
-
-      await SupabaseService.instance
-          .from('escort_tasks')
-          .update(updateData)
-          .eq('id', _currentTaskId);
-
-      print('[护送DB] ✅ 护送已完成: id=$_currentTaskId');
-      _currentTaskId = null;
-    } catch (e) {
-      print('[护送DB] ❌ 完成护送失败: $e');
     }
   }
 
@@ -256,12 +233,13 @@ class EscortService {
     if (_currentTaskId == null) return;
 
     try {
+      final taskId = _currentTaskId!;
       await SupabaseService.instance
           .from('escort_tasks')
           .update({'status': 'active'})
-          .eq('id', _currentTaskId);
+          .eq('id', taskId);
 
-      print('[护送DB] ✅ 护送已从 SOS 恢复: id=$_currentTaskId');
+      print('[护送DB] ✅ 护送已从 SOS 恢复: id=$taskId');
     } catch (e) {
       print('[护送DB] ❌ 恢复护送失败: $e');
     }

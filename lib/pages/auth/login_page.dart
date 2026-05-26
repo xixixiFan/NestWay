@@ -109,6 +109,12 @@ class _LoginPageState extends State<LoginPage> {
         
         // 设置 SosService 的 currentUserId
         SosService().currentUserId = userId;
+
+        // 持久化 OTP 登录状态，重启后可自动恢复
+        if (mounted) {
+          final displayName = _nameController.text.isNotEmpty ? _nameController.text : '用户';
+          context.read<AuthProvider>().loginAsOtpUser(userId, displayName, user.phone!);
+        }
       }
 
       if (mounted) {
