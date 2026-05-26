@@ -1,3 +1,4 @@
+// 黄色大按钮（SOS / 开始护送）
 import 'package:flutter/material.dart';
 
 class PrimaryButton extends StatelessWidget {
@@ -24,7 +25,7 @@ class PrimaryButton extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+                color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
