@@ -5,7 +5,7 @@ import 'services/supabase_service.dart';
 import 'services/auth_provider.dart';
 import 'services/contacts_provider.dart';
 import 'services/sos_service.dart';
-import 'app/app.dart';
+import 'pages/main_page.dart';  // 导入全局底部导航栏主页
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,7 +29,23 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ContactsProvider()),
       ],
-      child: const NestWayApp(),
+      child: const MyApp(),
     ),
   );
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: '栖途',
+      theme: ThemeData(primarySwatch: Colors.pink),
+      home: const MainPage(),  // 使用全局底部导航栏主页
+      routes: {
+        // 如果还有其他路由，可以在此添加
+      },
+    );
+  }
 }
