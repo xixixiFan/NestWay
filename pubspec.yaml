@@ -15,7 +15,7 @@ dependencies:
   # sign_in_with_apple: ^8.0.0   # 暂时注释，因为需要更高 Dart SDK 版本
   provider: ^6.1.2
   geolocator: ^13.0.2
-  image_picker: ^1.0.5   # 你的个人主页需要
+  image_picker: ^1.0.5   # 用于从相册选择头像
 
 dev_dependencies:
   flutter_test:

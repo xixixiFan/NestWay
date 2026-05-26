@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-// 城市安全数据模型
 class CitySafetyData {
   final String cityName;
   final String riskLevel;
@@ -45,12 +44,13 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
   static const String apiKey = 'sk-1f17d93786ac413187006742996cac29';
   final String apiUrl = 'https://api.deepseek.com/v1/chat/completions';
 
-  // 只保留四个热门目的地
   final List<String> hotDestinations = [
-    '长沙橘子洲头',
-    '北京故宫',
-    '深圳人才公园',
-    '长白山',
+    '香港',
+    '杭州',
+    '苏州',
+    '天津',
+    '上海',
+    '北京',
   ];
 
   @override
@@ -62,7 +62,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
   Future<void> _fetchSafetyReport(String place) async {
     if (apiKey.isEmpty) {
       setState(() {
-        _errorMessage = '请配置 API Key，运行命令：flutter run --dart-define=DEEPSEEK_API_KEY=你的密钥';
+        _errorMessage = 'API Key 未配置';
         _isLoading = false;
       });
       return;
@@ -74,20 +74,30 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
       _currentData = null;
     });
 
+    // 优化后的提示词：要求生成有地方特色的建议，避免通用套话
     const systemPrompt = '''
-你是女性旅行安全专家。用户将输入一个具体地点，请生成该地点的女性独自旅行安全报告，严格按照以下JSON格式返回，不要返回任何其他内容：
+你是女性旅行安全专家，回答必须接地气、有当地特色，避免千篇一律的套话。用户输入一个具体地点（城市、景点、商圈等），请生成该地点的女性独自旅行安全报告，严格按照以下JSON格式返回，不要返回任何其他内容：
 {
   "place_name": "地点名称",
   "risk_level": "低",
   "safety_score": 0-10的浮点数,
   "city_features": ["特点1", "特点2", "特点3"],
-  "security_brief": "治安状况简评（100字以内）",
-  "night_advice": "夜间出行建议（用句号或分号分隔多个要点）",
-  "accommodation_tips": "住宿安全建议（用句号或分号分隔多个要点）",
+  "security_brief": "治安状况简评（100字以内，突出本地特有风险或优势）",
+  "night_advice": "夜间出行建议（用句号或分号分隔多个要点，每个要点需结合当地实际，例如具体街道名、交通方式、本地治安规律）",
+  "accommodation_tips": "住宿安全建议（用句号或分号分隔多个要点，针对当地住宿环境给出特色提醒）",
   "police_phone": "当地报警电话",
   "ambulance_phone": "急救电话",
   "local_hotline": "本地热线（如市长热线）"
 }
+
+特别注意：
+- 对于杭州，可提及西湖景区苏堤、白堤夜间照明情况，龙翔桥地铁站周边人流密度等。
+- 对于成都，可提及九眼桥、兰桂坊酒吧街夜间醉酒人群，玉林路小酒馆周边状况。
+- 对于香港，可提及旺角、尖沙咀夜间人流及扒手风险，部分大厦无底层门禁等问题。
+- 对于北京，可提及三里屯酒吧街、南锣鼓巷夜间安全，以及部分老城区胡同照明不足。
+- 对于上海，可提及外滩、南京东路步行街夜间人流量，迪士尼烟花散场疏散建议。
+- 对于苏州，可提及平江路、山塘街夜间照明，观前街商圈治安等。
+- 所有建议必须基于公开知识，尽量给出有辨识度的本地化提醒，不要使用“建议避免偏僻地方”这类通用语句。
 ''';
 
     final requestBody = {
@@ -231,7 +241,6 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
       children: [
         _buildHeaderCard(),
         const SizedBox(height: 16),
-        // 横向滚动热门目的地标签（四个）
         SizedBox(
           height: 40,
           child: ListView.separated(
@@ -253,12 +262,14 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
                       width: 0.5,
                     ),
                   ),
+                  alignment: Alignment.center,
                   child: Text(
                     city,
                     style: TextStyle(
                       fontSize: 14,
                       color: isSelected ? Colors.white : Colors.black87,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               );
@@ -458,7 +469,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
             const SizedBox(width: 8),
             Text(
               "安全评分 ${_currentData!.safetyScore.toStringAsFixed(1)}/5",
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+              style: const TextStyle(color: Colors.black, fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ],
         ),
