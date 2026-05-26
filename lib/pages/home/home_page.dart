@@ -13,20 +13,18 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> hotDestinations = [
-    '长沙橘子洲头',
-    '北京故宫',
-    '深圳人才公园',
-    '长白山',
-    '上海迪士尼',
-    '香港迪士尼',
+  // 使用 feature/safety-profile 分支中的热门城市列表
+  final List<String> hotCities = [
+    '深圳', '长沙', '北京', '香港',
+    '杭州', '苏州', '天津', '洛阳',
+    '哈尔滨', '上海',
   ];
 
-  void _searchDestination(String destination) {
+  void _searchCity(String city) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DestinationSafetyPage(cityName: destination),
+        builder: (context) => DestinationSafetyPage(cityName: city),
       ),
     );
   }
@@ -196,7 +194,7 @@ class _HomePageState extends State<HomePage> {
                     filled: true,
                     fillColor: Colors.white,
                   ),
-                  onSubmitted: _searchDestination,
+                  onSubmitted: _searchCity,
                 ),
               ),
 
@@ -205,19 +203,19 @@ class _HomePageState extends State<HomePage> {
               // 热门目的地标题
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text('热门目的地', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text('热门城市', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
 
               const SizedBox(height: 12),
 
-              // 热门目的地标签
+              // 热门城市标签（使用 feature/safety-profile 的城市列表）
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Wrap(
                   spacing: 12,
                   runSpacing: 12,
-                  children: hotDestinations.map((destination) => GestureDetector(
-                    onTap: () => _searchDestination(destination),
+                  children: hotCities.map((city) => GestureDetector(
+                    onTap: () => _searchCity(city),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
@@ -230,7 +228,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ],
                       ),
-                      child: Text(destination, style: const TextStyle(fontSize: 14)),
+                      child: Text(city, style: const TextStyle(fontSize: 14)),
                     ),
                   )).toList(),
                 ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import '../../routes/app_routes.dart';
 import '../../services/auth_provider.dart';
 import '../../services/contacts_provider.dart';
@@ -16,14 +18,29 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
+  // 头像相关（本地选择，暂不保存到后端）
+  File? _avatarImage;
+  final String _defaultAvatarUrl = 'https://i.pravatar.cc/150?img=3'; // 默认头像
+
   @override
   void initState() {
     super.initState();
     final user = context.read<AuthProvider>().currentUser;
     _userName = user?['name'] as String? ?? '用户';
+    // 加载后端联系人
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ContactsProvider>().loadContacts();
     });
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        _avatarImage = File(pickedFile.path);
+      });
+    }
   }
 
   int calculateDays(String createdAt) {
@@ -55,6 +72,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 setState(() {
                   _userName = newName;
                 });
+                // TODO: 调用后端更新昵称
               }
               Navigator.pop(context);
             },
@@ -68,7 +86,6 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _showAddContactDialog() async {
     _nameController.clear();
     _phoneController.clear();
-
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -102,7 +119,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   name: name,
                   phone: phone,
                 );
-
                 if (success && mounted) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +136,15 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  void _deleteContact(int id) async {
+    final success = await context.read<ContactsProvider>().deleteContact(id);
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('删除成功'), backgroundColor: Colors.green),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser ?? {};
@@ -128,59 +153,37 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFEDE7F6),
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, size: 16),
-          onPressed: () {
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRoutes.home,
-              (route) => false,
-            );
-          },
-        ),
-        title: const Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            '我的',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w400),
-          ),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
+        title: const Text('我的'),
+        backgroundColor: const Color(0xFFEDE7F6),
+        foregroundColor: Colors.black87,
         elevation: 0,
-        titleSpacing: 0,
+        centerTitle: false,
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 16),
-                    _buildUserCard(avatarUrl),
-                    const SizedBox(height: 16),
-                    _buildGuardCard(user),
-                    const SizedBox(height: 16),
-                    _buildContactsCard(),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () {
-                        context.read<AuthProvider>().logout();
-                        Navigator.pushNamedAndRemoveUntil(
-                          context,
-                          AppRoutes.login,
-                          (route) => false,
-                        );
-                      },
-                      child: const Text("退出当前账号", style: TextStyle(color: Colors.red)),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              _buildUserCard(avatarUrl),
+              const SizedBox(height: 16),
+              _buildGuardCard(user),
+              const SizedBox(height: 16),
+              _buildContactsCard(),
+              const SizedBox(height: 16),
+              GestureDetector(
+                onTap: () {
+                  context.read<AuthProvider>().logout();
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    AppRoutes.login,
+                    (route) => false,
+                  );
+                },
+                child: const Text("退出当前账号", style: TextStyle(color: Colors.red)),
               ),
-            ),
-          ],
+              const SizedBox(height: 32),
+            ],
+          ),
         ),
       ),
     );
@@ -193,11 +196,20 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: _cardStyle(),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.pinkAccent,
-            backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
+          GestureDetector(
+            onTap: _pickImageFromGallery,
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.pinkAccent,
+              backgroundImage: _avatarImage != null
+                  ? FileImage(_avatarImage!)
+                  : (avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : NetworkImage(_defaultAvatarUrl)) as ImageProvider?,
+              child: (_avatarImage == null && avatarUrl.isEmpty)
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -233,7 +245,10 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: _cardStyle(),
       child: Row(
         children: [
-          const CircleAvatar(backgroundColor: Colors.amber, child: Icon(Icons.shield, color: Colors.black)),
+          const CircleAvatar(
+            backgroundColor: Colors.amber,
+            child: Icon(Icons.shield, color: Colors.black),
+          ),
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +259,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const Spacer(),
-          const Icon(Icons.chevron_right),
         ],
       ),
     );
@@ -324,14 +338,7 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           IconButton(
             icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-            onPressed: () async {
-              final success = await context.read<ContactsProvider>().deleteContact(contact['id'] as int);
-              if (success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('删除成功'), backgroundColor: Colors.green),
-                );
-              }
-            },
+            onPressed: () => _deleteContact(contact['id'] as int),
           ),
         ],
       ),
