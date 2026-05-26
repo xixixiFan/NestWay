@@ -112,7 +112,7 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/sos', (route) => false);
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
       }
     } catch (e) {
       print('注册完成失败: $e');
@@ -121,7 +121,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void _loginAsDemo(int userId) {
     context.read<AuthProvider>().loginAsDemoUser(userId);
-    Navigator.pushNamedAndRemoveUntil(context, '/sos', (route) => false);
+    Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
   }
 
   @override

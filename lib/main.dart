@@ -5,10 +5,11 @@ import 'services/supabase_service.dart';
 import 'services/auth_provider.dart';
 import 'services/contacts_provider.dart';
 import 'services/sos_service.dart';
-import 'pages/escort/escort_page.dart';                // 虚拟护送页面（请确保文件存在）
-import 'pages/safety/destination_safety_page.dart';    // 预警页面
-import 'pages/sos/sos_page.dart';                      // SOS页面（队友提供）
-import 'pages/profile/profile_page.dart';              // 我的页面
+import 'pages/escort/escort_page.dart';
+import 'pages/safety/destination_safety_page.dart';
+import 'pages/sos/sos_page.dart';
+import 'pages/profile/profile_page.dart';
+import 'routes/app_routes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,13 +42,15 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 将 MainPage 作为首页，保留所有命名路由
+    final routeTable = Map<String, WidgetBuilder>.from(AppRoutes.routes);
+    routeTable[AppRoutes.home] = (context) => const MainPage();
+
     return MaterialApp(
       title: '栖途',
       theme: ThemeData(primarySwatch: Colors.pink),
-      home: const MainPage(),
-      routes: {
-        // 如果需要其他路由，可在此添加
-      },
+      initialRoute: AppRoutes.login,
+      routes: routeTable,
     );
   }
 }

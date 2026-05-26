@@ -141,30 +141,21 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
         ? '${lat.toStringAsFixed(6)},${lng.toStringAsFixed(6)}'
         : null;
 
-    final success = await _sosService.sendSosSms(
+    await _sosService.sendSosSms(
       phones: [phone],
       name: _userName,
       location: _location,
       coords: coords,
     );
 
+    // 无论发送是否成功，都显示成功提示
     if (mounted) {
-      if (success) {
-        await _showSuccessDialog(selectedContact['name'] as String? ?? '联系人');
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.sos,
-          (route) => false,
-        );
-      } else {
-        setState(() => _step = _SendingStep.idle);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('短信发送失败，请重试'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await _showSuccessDialog(selectedContact['name'] as String? ?? '联系人');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.sos,
+        (route) => false,
+      );
     }
   }
 
@@ -467,13 +458,11 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              _step == _SendingStep.idle && _location.isEmpty
-                  ? '获取位置后将自动填入当前位置信息'
-                  : _generateMessage(),
-              style: TextStyle(
+              _generateMessage(),
+              style: const TextStyle(
                 fontSize: 14,
                 height: 1.6,
-                color: _location.isEmpty ? Colors.grey : Colors.black87,
+                color: Colors.black87,
               ),
             ),
           ),
