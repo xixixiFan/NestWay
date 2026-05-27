@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../routes/app_routes.dart';
 
 class AppBottomNav extends StatelessWidget {
-  final int currentIndex; // 当前选中
+  final int currentIndex;
 
   const AppBottomNav({super.key, required this.currentIndex});
 
@@ -11,13 +11,15 @@ class AppBottomNav extends StatelessWidget {
 
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, AppRoutes.safety);
+        // 当前已经是预警页？但底部栏索引0对应预警，如果在主页点击预警应该跳转
+        // 根据您的设计：0 -> 预警页，1 -> SOS，2 -> 我的
+        Navigator.pushNamed(context, AppRoutes.safety);
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, AppRoutes.sos);
+        Navigator.pushNamed(context, AppRoutes.sos);
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, AppRoutes.profile);
+        Navigator.pushNamed(context, AppRoutes.profile);
         break;
     }
   }
@@ -42,7 +44,7 @@ class AppBottomNav extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            // 首页
+            // 预警按钮（索引0）
             GestureDetector(
               onTap: () => _navigate(context, 0),
               child: Column(
@@ -64,8 +66,7 @@ class AppBottomNav extends StatelessWidget {
                 ],
               ),
             ),
-
-            // SOS
+            // SOS 圆形按钮（索引1）
             GestureDetector(
               onTap: () => _navigate(context, 1),
               child: Container(
@@ -90,8 +91,7 @@ class AppBottomNav extends StatelessWidget {
                 ),
               ),
             ),
-
-            // 我的
+            // 我的按钮（索引2）
             GestureDetector(
               onTap: () => _navigate(context, 2),
               child: Column(

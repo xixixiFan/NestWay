@@ -21,17 +21,13 @@ class _NestWayAppState extends State<NestWayApp> {
 
   Future<void> _waitForAuthInit() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    
     int waitedMs = 0;
     while (authProvider.currentUser == null && waitedMs < 2000) {
       await Future.delayed(const Duration(milliseconds: 50));
       waitedMs += 50;
     }
-    
     if (mounted) {
-      setState(() {
-        _isInitialized = true;
-      });
+      setState(() => _isInitialized = true);
     }
   }
 
@@ -39,18 +35,6 @@ class _NestWayAppState extends State<NestWayApp> {
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final theme = ThemeData(
-      fontFamily: null,
-      textTheme: const TextTheme(
-        bodyLarge: TextStyle(fontFamily: ''),
-        bodyMedium: TextStyle(fontFamily: ''),
-        bodySmall: TextStyle(fontFamily: ''),
-        titleLarge: TextStyle(fontFamily: ''),
-        titleMedium: TextStyle(fontFamily: ''),
-        titleSmall: TextStyle(fontFamily: ''),
-        labelLarge: TextStyle(fontFamily: ''),
-        labelMedium: TextStyle(fontFamily: ''),
-        labelSmall: TextStyle(fontFamily: ''),
-      ),
       primaryColor: const Color(0xFFFFE066),
       scaffoldBackgroundColor: const Color(0xFFF3F0FF),
       appBarTheme: const AppBarTheme(
@@ -66,11 +50,7 @@ class _NestWayAppState extends State<NestWayApp> {
         debugShowCheckedModeBanner: false,
         theme: theme,
         routes: AppRoutes.routes,
-        home: const Scaffold(
-          body: Center(
-            child: CircularProgressIndicator(),
-          ),
-        ),
+        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
 

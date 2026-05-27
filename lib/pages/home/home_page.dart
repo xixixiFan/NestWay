@@ -25,6 +25,7 @@ class _HomePageState extends State<HomePage> {
     _fetchCity();
   }
 
+  /// 获取当前城市
   Future<void> _fetchCity() async {
     final result = await LocationService().getPreciseLocation();
     if (mounted) {
@@ -116,7 +117,7 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // 抽象装饰层 - 模糊光晕
+            // 模糊光晕装饰层
             Positioned(
               top: 180,
               left: 0,
@@ -132,26 +133,22 @@ class _HomePageState extends State<HomePage> {
                   child: ClipOval(
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-                      child: Container(
-                        color: Colors.transparent,
-                      ),
+                      child: Container(color: Colors.transparent),
                     ),
                   ),
                 ),
               ),
             ),
-
             SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
 
-                  // 品牌头部
+                  // 品牌头部 + 城市安全状态
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         const Text(
                           'Nestway',
@@ -162,7 +159,6 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                         const Spacer(),
-                        // 城市安全状态
                         ClipRRect(
                           borderRadius: BorderRadius.circular(18),
                           child: BackdropFilter(
@@ -261,7 +257,7 @@ class _HomePageState extends State<HomePage> {
 
                   const SizedBox(height: 48),
 
-                  // 底部导航栏
+                  // 新版底部导航栏（无高亮，主页不直接对应任何 tab）
                   const AppBottomNav(currentIndex: -1),
 
                   const SizedBox(height: 10),
