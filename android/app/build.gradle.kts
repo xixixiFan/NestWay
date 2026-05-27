@@ -24,7 +24,7 @@ android {
         applicationId = "com.example.solotrip"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21  // video_player需要最低API 21
+        minSdk = flutter.minSdkVersion  // video_player需要最低API 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(git commit -m ' *)",
-      "Bash(flutter run *)"
+      "Bash(flutter run *)",
+      "Bash(flutter build *)",
+      "Bash(flutter clean *)",
+      "Bash(flutter pub *)"
     ]
   },
   "enabledPlugins": {
