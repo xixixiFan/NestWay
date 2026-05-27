@@ -14,19 +14,17 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
 
   final List<String> hotDestinations = [
-    '长沙橘子洲头',
-    '北京故宫',
-    '深圳人才公园',
-    '长白山',
-    '上海迪士尼',
-    '香港迪士尼',
+    '深圳', '长沙', '北京', '香港',
+    '杭州', '苏州', '天津', '洛阳',
+    '哈尔滨', '上海',
   ];
 
   void _searchDestination(String destination) {
+    if (destination.trim().isEmpty) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => DestinationSafetyPage(cityName: destination),
+        builder: (context) => DestinationSafetyPage(cityName: destination.trim()),
       ),
     );
   }
@@ -174,6 +172,9 @@ class _HomePageState extends State<HomePage> {
                       icon: Icons.warning,
                       title: '目的地预警',
                       description: '出发前了解目的地安全状况，提前规划，旅途更安心',
+                      onTap: () {
+                        _searchDestination('深圳');
+                      },
                     ),
                   ],
                 ),
@@ -181,14 +182,19 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 32),
 
-              // 搜索栏
+              // 搜索栏 - 左侧图标可点击
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: '搜索城市或目的地',
-                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                    hintText: '搜索城市或具体目的地',
+                    prefixIcon: GestureDetector(
+                      onTap: () {
+                        _searchDestination(_searchController.text);
+                      },
+                      child: const Icon(Icons.search, color: Colors.grey),
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(30),
                       borderSide: BorderSide.none,
@@ -202,15 +208,15 @@ class _HomePageState extends State<HomePage> {
 
               const SizedBox(height: 20),
 
-              // 热门目的地标题
+              // 热门城市标题
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text('热门目的地', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text('热门城市', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
 
               const SizedBox(height: 12),
 
-              // 热门目的地标签
+              // 热门城市标签
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Wrap(
@@ -274,7 +280,7 @@ class _HomePageState extends State<HomePage> {
         ),
         child: Row(
           children: [
-            Icon(icon, size: 32, color: const Color(0xFFE91E63)),
+            Icon(icon, size: 32, color: const Color(0xFF8022FF)),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

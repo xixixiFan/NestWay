@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../routes/app_routes.dart';
 import '../../services/auth_provider.dart';
 import '../../services/contacts_provider.dart';
@@ -16,11 +18,16 @@ class _ProfilePageState extends State<ProfilePage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
+  // 头像相关状态
+  String? _avatarUrl;
+  bool _isUploading = false;
+
   @override
   void initState() {
     super.initState();
     final user = context.read<AuthProvider>().currentUser;
     _userName = user?['name'] as String? ?? '用户';
+    _avatarUrl = user?['avatar_url'] as String?;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ContactsProvider>().loadContacts();
     });
@@ -55,6 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 setState(() {
                   _userName = newName;
                 });
+                // 可选：调用后端更新昵称
               }
               Navigator.pop(context);
             },
@@ -65,6 +73,39 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  // ================= 头像选择（仅本地预览，不真正上传服务器） =================
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 500,
+      maxHeight: 500,
+      imageQuality: 85,
+    );
+    if (pickedFile == null) return;
+
+    setState(() => _isUploading = true);
+
+    // 模拟上传延时（实际应调用后端接口）
+    await Future.delayed(const Duration(milliseconds: 800));
+
+    // 临时使用本地文件路径作为头像（仅用于演示，刷新后丢失）
+    setState(() {
+      _avatarUrl = pickedFile.path;
+      _isUploading = false;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('头像已更新（本地预览，未上传服务器）'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  // ================= 原有联系人逻辑 =================
   Future<void> _showAddContactDialog() async {
     _nameController.clear();
     _phoneController.clear();
@@ -123,7 +164,8 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser ?? {};
-    final avatarUrl = user['avatar_url'] as String? ?? '';
+    // 优先使用本地选择的头像，否则使用服务器返回的头像
+    final displayAvatarUrl = _avatarUrl ?? user['avatar_url'] as String? ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFEDE7F6),
@@ -158,7 +200,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-                    _buildUserCard(avatarUrl),
+                    _buildUserCard(displayAvatarUrl),
                     const SizedBox(height: 16),
                     _buildGuardCard(user),
                     const SizedBox(height: 16),
@@ -193,11 +235,34 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: _cardStyle(),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.pinkAccent,
-            backgroundImage: avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
-            child: avatarUrl.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
+          GestureDetector(
+            onTap: _isUploading ? null : _pickAndUploadAvatar,
+            child: Stack(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Colors.pinkAccent,
+                  backgroundImage: avatarUrl.isNotEmpty
+                      ? (avatarUrl.startsWith('http')
+                          ? NetworkImage(avatarUrl)
+                          : FileImage(File(avatarUrl)) as ImageProvider)
+                      : null,
+                  child: avatarUrl.isEmpty && !_isUploading
+                      ? const Icon(Icons.person, color: Colors.white)
+                      : null,
+                ),
+                if (_isUploading)
+                  const Positioned.fill(
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -244,7 +309,6 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const Spacer(),
-          const Icon(Icons.chevron_right),
         ],
       ),
     );

@@ -45,12 +45,9 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
   static const String apiKey = 'sk-1f17d93786ac413187006742996cac29';
   final String apiUrl = 'https://api.deepseek.com/v1/chat/completions';
 
-  // 只保留四个热门目的地
-  final List<String> hotDestinations = [
-    '长沙橘子洲头',
-    '北京故宫',
-    '深圳人才公园',
-    '长白山',
+  // 热门城市列表（只显示城市名）
+  final List<String> hotCities = const [
+    '香港', '杭州', '苏州', '天津', '洛阳', '哈尔滨'
   ];
 
   @override
@@ -62,7 +59,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
   Future<void> _fetchSafetyReport(String place) async {
     if (apiKey.isEmpty) {
       setState(() {
-        _errorMessage = '请配置 API Key，运行命令：flutter run --dart-define=DEEPSEEK_API_KEY=你的密钥';
+        _errorMessage = '请配置 API Key';
         _isLoading = false;
       });
       return;
@@ -75,18 +72,19 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
     });
 
     const systemPrompt = '''
-你是女性旅行安全专家。用户将输入一个具体地点，请生成该地点的女性独自旅行安全报告，严格按照以下JSON格式返回，不要返回任何其他内容：
+你是一位资深女性旅行安全专家，熟悉各地文化。用户输入一个具体城市，请生成针对女性独自旅行的安全报告，要求内容具体、有该城市特色，避免空泛套话。
+严格按照以下JSON格式返回，不要有任何额外文字：
 {
-  "place_name": "地点名称",
-  "risk_level": "低",
+  "place_name": "城市名称",
+  "risk_level": "低/中/高",
   "safety_score": 0-10的浮点数,
-  "city_features": ["特点1", "特点2", "特点3"],
-  "security_brief": "治安状况简评（100字以内）",
-  "night_advice": "夜间出行建议（用句号或分号分隔多个要点）",
-  "accommodation_tips": "住宿安全建议（用句号或分号分隔多个要点）",
-  "police_phone": "当地报警电话",
+  "city_features": ["特色1", "特色2", "特色3"],
+  "security_brief": "治安简评（100字内，指出常见风险区域及女性注意事项）",
+  "night_advice": "3~5条夜间出行建议，用句号分隔，结合该城市夜生活特点",
+  "accommodation_tips": "3~5条住宿建议，用句号分隔，指出不同区域优劣",
+  "police_phone": "报警电话",
   "ambulance_phone": "急救电话",
-  "local_hotline": "本地热线（如市长热线）"
+  "local_hotline": "当地旅游服务热线（若无则留空）"
 }
 ''';
 
@@ -96,8 +94,8 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
         {"role": "system", "content": systemPrompt},
         {"role": "user", "content": place}
       ],
-      "temperature": 0.1,
-      "max_tokens": 1500,
+      "temperature": 0.3,
+      "max_tokens": 2000,
     };
 
     try {
@@ -231,40 +229,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
       children: [
         _buildHeaderCard(),
         const SizedBox(height: 16),
-        // 横向滚动热门目的地标签（四个）
-        SizedBox(
-          height: 40,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: hotDestinations.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (ctx, idx) {
-              final city = hotDestinations[idx];
-              final isSelected = _currentData?.cityName == city;
-              return GestureDetector(
-                onTap: () => _fetchSafetyReport(city),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF8022FF) : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF8022FF) : Colors.grey.shade300,
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    city,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isSelected ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+        _buildHotCitiesRow(),
         const SizedBox(height: 24),
         _buildSectionCard(
           title: "城市安全特点",
@@ -305,7 +270,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
         ),
         const SizedBox(height: 24),
         _buildSectionCard(
-          title: "住宿到达注意事项",
+          title: "住宿安全建议",
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: _currentData!.accommodationTips
@@ -399,6 +364,46 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
     );
   }
 
+  // 热门城市标签：文字水平垂直居中
+  Widget _buildHotCitiesRow() {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: hotCities.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final city = hotCities[index];
+          final isCurrentCity = _currentData?.cityName == city;
+          return GestureDetector(
+            onTap: () => _fetchSafetyReport(city),
+            child: Container(
+              alignment: Alignment.center,               // 垂直水平居中
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: isCurrentCity ? const Color(0xFF8022FF) : Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(
+                  color: isCurrentCity ? const Color(0xFF8022FF) : Colors.grey.shade300,
+                  width: 0.5,
+                ),
+              ),
+              child: Text(
+                city,
+                textAlign: TextAlign.center,            // 文字水平居中
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isCurrentCity ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // 头部卡片：评分数字黑色加粗
   Widget _buildHeaderCard() {
     String riskDisplay = _currentData!.riskLevel;
     Color riskBgColor;
@@ -456,9 +461,22 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
               }
             }),
             const SizedBox(width: 8),
-            Text(
-              "安全评分 ${_currentData!.safetyScore.toStringAsFixed(1)}/5",
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 12),
+                children: [
+                  const TextSpan(text: '安全评分 ', style: TextStyle(color: Colors.grey)),
+                  TextSpan(
+                    text: _currentData!.safetyScore.toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const TextSpan(text: '/5', style: TextStyle(color: Colors.grey)),
+                ],
+              ),
             ),
           ],
         ),
@@ -471,7 +489,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
     required Widget child,
   }) {
     return Container(
-      width: 390,
+      width: double.infinity,
       constraints: const BoxConstraints(minHeight: 219),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
