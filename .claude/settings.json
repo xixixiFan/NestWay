@@ -1,10 +1,11 @@
 {
-  "enabledPlugins": {
-    "figma@claude-plugins-official": true
-  },
   "permissions": {
     "allow": [
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(flutter run *)"
     ]
+  },
+  "enabledPlugins": {
+    "figma@claude-plugins-official": true
   }
 }

@@ -187,6 +187,7 @@ class _DestinationSafetyPageState extends State<DestinationSafetyPage> {
       backgroundColor: const Color(0xFFEFE9FF),
       appBar: AppBar(
         title: const Text('目的地安全预警'),
+        centerTitle: true,
         backgroundColor: const Color(0xFFEFE9FF),
         foregroundColor: Colors.black87,
         elevation: 0,
