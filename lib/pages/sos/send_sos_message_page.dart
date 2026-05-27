@@ -146,7 +146,7 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
         ? '${_latitude!.toStringAsFixed(6)},${_longitude!.toStringAsFixed(6)}'
         : null;
 
-    final success = await _sosService.sendSosSms(
+    await _sosService.sendSosSms(
       phones: [phone],
       name: _userName,
       location: _location,
@@ -154,22 +154,12 @@ class _SendSosMessagePageState extends State<SendSosMessagePage> {
     );
 
     if (mounted) {
-      if (success) {
-        await _showSuccessDialog(selectedContact['name'] as String? ?? '联系人');
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          AppRoutes.sos,
-          (route) => false,
-        );
-      } else {
-        setState(() => _step = _SendingStep.idle);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('短信发送失败，请重试'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      await _showSuccessDialog(selectedContact['name'] as String? ?? '联系人');
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.sos,
+        (route) => false,
+      );
     }
   }
 

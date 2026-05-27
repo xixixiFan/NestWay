@@ -1,5 +1,10 @@
 {
   "enabledPlugins": {
     "figma@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m ' *)"
+    ]
   }
 }
