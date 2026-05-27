@@ -8,12 +8,17 @@ import 'app/app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseService.initialize();
+
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    print('⚠️ Supabase 初始化失败（应用将继续以离线模式运行）: $e');
+  }
 
   final authProvider = AuthProvider();
   await authProvider.init();
 
-  print('✅ Supabase 初始化完成，AuthProvider 已就绪');
+  print('✅ AuthProvider 已就绪');
 
   runApp(
     MultiProvider(

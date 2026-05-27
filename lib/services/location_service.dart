@@ -215,8 +215,9 @@ class LocationService {
 
               if (addressComponent != null) {
                 // 提取城市名（去掉"市"字更简洁）
-                final rawCity = addressComponent['city'] as String?;
-                city = rawCity?.replaceAll('市', '');
+                // 高德API的city字段可能是String或空List(无城市时)
+                final rawCity = addressComponent['city'];
+                city = (rawCity is String ? rawCity : null)?.replaceAll('市', '');
 
                 final district = addressComponent['district'] as String? ?? '';
                 final township = addressComponent['township'] as String? ?? '';
