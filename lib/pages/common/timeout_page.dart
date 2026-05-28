@@ -5,6 +5,7 @@ import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
 import '../../services/escort_service.dart';
 import '../../widgets/countdown_ring_painter.dart';
+import '../../debug/escort_debug.dart';
 import '../../widgets/countdown_ended_dialog.dart';
 import 'success_page.dart';
 
@@ -22,16 +23,14 @@ class TimeoutPage extends StatefulWidget {
   State<TimeoutPage> createState() => _TimeoutPageState();
 }
 
-class _TimeoutPageState extends State<TimeoutPage>
-    with SingleTickerProviderStateMixin {
+class _TimeoutPageState extends State<TimeoutPage> {
   final EscortLocationService _locationService = EscortLocationService();
   final SosService _sosService = SosService();
   LocationPoint? _lastLocation;
   bool _isReporting = false;
 
-  late AnimationController _countdownController;
   Timer? _countdownTimer;
-  int _countdownSeconds = 90; // 1:30
+  int _countdownSeconds = 90;
   bool _countdownExpired = false;
   static const int _totalCountdownSeconds = 90;
 
@@ -42,24 +41,12 @@ class _TimeoutPageState extends State<TimeoutPage>
     if (_lastLocation == null) {
       _fetchLastLocation();
     }
-
-    _countdownController = AnimationController(
-      duration: const Duration(seconds: _totalCountdownSeconds),
-      vsync: this,
-    );
-    _countdownController.addStatusListener((status) {
-      if (status == AnimationStatus.completed && !_countdownExpired) {
-        _onCountdownExpired();
-      }
-    });
-    _countdownController.forward();
     _startCountdownTimer();
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
-    _countdownController.dispose();
     super.dispose();
   }
 
@@ -69,13 +56,23 @@ class _TimeoutPageState extends State<TimeoutPage>
         timer.cancel();
         return;
       }
+      final skip = EscortDebug.skipTimer();
+      bool expired = false;
       setState(() {
-        if (_countdownSeconds > 0) {
-          _countdownSeconds--;
-        } else {
-          timer.cancel();
+        for (int i = 0; i < skip; i++) {
+          if (_countdownSeconds > 0) {
+            _countdownSeconds--;
+          }
+          if (_countdownSeconds <= 0) {
+            expired = true;
+            break;
+          }
         }
       });
+      if (expired) {
+        timer.cancel();
+        _onCountdownExpired();
+      }
     });
   }
 
@@ -177,312 +174,216 @@ class _TimeoutPageState extends State<TimeoutPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F0FF),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
+    return EscortDebugFloatingButton(
+      actions: [
+        DebugAction(label: '我很安全 → SuccessPage', icon: Icons.check_circle, color: Colors.green,
+          onTap: () {
+            if (mounted) {
+              Navigator.pushAndRemoveUntil(context,
+                MaterialPageRoute(builder: (_) => SuccessPage(config: widget.config, lastLocation: _lastLocation)),
+                (route) => false);
+            }
+          }),
+        DebugAction(label: '需要帮助 → SOS 页', icon: Icons.warning, color: Colors.red,
+          onTap: () {
+            _countdownTimer?.cancel();
+            EscortService().markAsSos(lastLocation: _lastLocation);
+            if (mounted) Navigator.pushReplacementNamed(context, '/sos');
+          }),
+        DebugAction(label: '立即触发倒计时到期', icon: Icons.timer_off, color: Colors.orange,
+          onTap: () => _onCountdownExpired()),
+      ],
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3F0FF),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // 顶部栏
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  children: [
+                    GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: const Icon(Icons.arrow_back, color: Colors.black54),
                     ),
-                  ),
-                  const Text(
-                    '你还好吗？',
-                    style: TextStyle(fontSize: 18, color: Colors.black87),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _PulsingDot(),
-                  ),
-                ],
+                    const Spacer(),
+                    const Text('你还好吗？', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87)),
+                    const Spacer(),
+                    _PulsingDot(),
+                  ],
+                ),
               ),
-            ),
 
-            const Spacer(),
+              const Spacer(),
 
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFFE066),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.priority_high,
-                      size: 32,
-                      color: Colors.black87,
-                    ),
+              // 中央白色卡片
+              Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.fromLTRB(16, 36, 16, 36),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(32),
                   ),
-
-                  const SizedBox(height: 24),
-
-                  _card(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Column(
-                        children: [
-                          const Text(
-                            '已超过预计到达时间',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '未收到你的打卡，请确认你的状态',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (_lastLocation != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.location_on,
-                                    size: 14,
-                                    color: Color(0xFFFFE066),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _lastLocation!.address ?? '已获取最后位置',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  '正在获取位置...',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black38,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          const SizedBox(height: 24),
-
-                          // 倒计时环
-                          SizedBox(
-                            width: 140,
-                            height: 140,
-                            child: AnimatedBuilder(
-                              animation: _countdownController,
-                              builder: (context, child) {
-                                return CustomPaint(
-                                  painter: CountdownRingPainter(
-                                    progress: 1.0 - _countdownController.value,
-                                    isWarning: _countdownSeconds <= 30,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      _formatSeconds(_countdownSeconds),
-                                      style: TextStyle(
-                                        fontSize: 32,
-                                        fontWeight: FontWeight.bold,
-                                        color: _countdownSeconds <= 30
-                                            ? const Color(0xFFDC2626)
-                                            : Colors.black87,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            '倒计时结束后自动通知紧急联系人',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const Spacer(),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () async {
-                        // 1. 标记护送为 completed 状态
-                        await EscortService().completeEscort(lastLocation: _lastLocation);
-                        
-                        // 2. 跳转成功页
-                        if (mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => SuccessPage(
-                                config: widget.config,
-                                lastLocation: _lastLocation,
-                              ),
-                            ),
-                            (route) => false,
-                          );
-                        }
-                      },
-                      child: Container(
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(27),
-                          border: Border.all(
-                            color: const Color(0xFFFFE066),
-                            width: 2,
-                          ),
+                  child: Column(
+                    children: [
+                      // 黄色感叹号图标
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFE066),
+                          shape: BoxShape.circle,
                         ),
-                        child: const Center(
-                          child: Text(
-                            '我很安全',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
+                        child: const Icon(Icons.priority_high, size: 32, color: Colors.black87),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: _isReporting
-                          ? null
-                          : () async {
-                              setState(() => _isReporting = true);
-                              
-                              // 1. 标记护送为 SOS 状态
-                              await EscortService().markAsSos(lastLocation: _lastLocation);
-                              
-                              // 2. 报告超时
-                              await _reportTimeout();
-                              
-                              if (mounted) {
-                                setState(() => _isReporting = false);
-                                // 3. 跳转 SOS 页面，保留路由栈（不用 pushAndRemoveUntil）
-                                Navigator.pushNamed(context, '/sos');
-                              }
-                            },
-                      child: Opacity(
-                        opacity: _isReporting ? 0.6 : 1.0,
-                        child: Container(
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEE2E2),
-                            borderRadius: BorderRadius.circular(27),
+                      const SizedBox(height: 20),
+
+                      const Text('已超过预计到达时间', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      const Text('未收到你的打卡，请确认你的状态',
+                          style: TextStyle(fontSize: 14, color: Colors.black54),
+                          textAlign: TextAlign.center),
+
+                      const SizedBox(height: 28),
+
+                      // 倒计时环
+                      SizedBox(
+                        width: 140,
+                        height: 140,
+                        child: CustomPaint(
+                          painter: CountdownRingPainter(
+                            progress: 1.0 - (_countdownSeconds / _totalCountdownSeconds),
+                            isWarning: _countdownSeconds <= 30,
                           ),
                           child: Center(
-                            child: _isReporting
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFFDC2626),
-                                    ),
-                                  )
-                                : const Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        '需要帮助',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                          color: Color(0xFFDC2626),
-                                        ),
-                                      ),
-                                      SizedBox(height: 2),
-                                      Text(
-                                        '静默跳转至SOS模式',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          color: Colors.black45,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                            child: Text(
+                              _formatSeconds(_countdownSeconds),
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: _countdownSeconds <= 30 ? const Color(0xFFDC2626) : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text('倒计时结束后将通知紧急联系人',
+                          style: TextStyle(fontSize: 12, color: Colors.black45)),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+
+              // 底部位置信息
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  children: [
+                    _locationRow(Icons.location_on, '当前定位：${_lastLocation?.address ?? '获取中...'}'),
+                    const SizedBox(height: 8),
+                    _locationRow(Icons.flag, '目的地：${widget.config.destination}'),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // 并排按钮
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (mounted) {
+                            Navigator.pushAndRemoveUntil(context,
+                              MaterialPageRoute(builder: (_) => SuccessPage(config: widget.config, lastLocation: _lastLocation)),
+                              (route) => false);
+                          }
+                        },
+                        child: Container(
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFE066),
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: const Center(
+                            child: Text('我很安全', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _isReporting ? null : () async {
+                          setState(() => _isReporting = true);
+                          await EscortService().markAsSos(lastLocation: _lastLocation);
+                          await _reportTimeout();
+                          _countdownTimer?.cancel();
+                          if (mounted) {
+                            setState(() => _isReporting = false);
+                            Navigator.pushReplacementNamed(context, '/sos');
+                          }
+                        },
+                        child: Opacity(
+                          opacity: _isReporting ? 0.6 : 1.0,
+                          child: Container(
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEE2E2),
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            child: Center(
+                              child: _isReporting
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFDC2626)))
+                                  : const Text('需要帮助', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Color(0xFFDC2626))),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(radius: 3, backgroundColor: Color(0xFF10B981)),
+                  SizedBox(width: 6),
+                  Text('加密护航链路已断开', style: TextStyle(fontSize: 11, color: Colors.black45)),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
+
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  static Widget _card({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: child,
+  Widget _locationRow(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: icon == Icons.location_on ? const Color(0xFFFFE066) : Colors.black38),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(text, style: const TextStyle(fontSize: 12, color: Colors.black54),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ],
     );
   }
 }

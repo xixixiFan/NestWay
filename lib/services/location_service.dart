@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import '../config/amap_config.dart';
+import 'supabase_service.dart';
 
 /// Unified location result returned by [LocationService].
 class LocationResult {
@@ -61,10 +63,11 @@ class LocationService {
   factory LocationService() => _instance;
   LocationService._internal();
 
-  static const _timeLimit = Duration(seconds: 10);
+  static const _timeLimit = Duration(seconds: 6);
   static const _sampleCount = 2;
-  static const _amapApiKey = '89ff90f769765ecd5f68e2cb48e283cb';
-  static const _httpTimeout = Duration(seconds: 8);
+  static const _graceAfterFirst = Duration(milliseconds: 2500);
+  static const _amapApiKey = amapApiKey;
+  static const _httpTimeout = Duration(seconds: 5);
 
   /// Main entry: get precise location with multi-sampling.
   /// Returns [LocationResult] with address from reverse geocoding.
@@ -101,10 +104,12 @@ class LocationService {
       );
     }
 
-    // 3. Multi-sampling: collect N points, pick best accuracy
-    print('[定位] 开始多采样 (目标 $_sampleCount 个点, 超时 ${_timeLimit.inSeconds}s)...');
+    // 3. Multi-sampling: collect up to N points, pick best accuracy.
+    //    收到第 1 个点后最多再等 2.5s，超时则直接用已有点。
+    print('[定位] 开始采样 (目标 $_sampleCount 个点, 首点宽限 ${_graceAfterFirst.inMilliseconds}ms, 硬超时 ${_timeLimit.inSeconds}s)...');
     final samples = <Position>[];
     StreamSubscription<Position>? subscription;
+    Timer? graceTimer;
     final completer = Completer<void>();
 
     try {
@@ -118,15 +123,25 @@ class LocationService {
           samples.add(position);
           print('[定位]   收到第 ${samples.length} 个采样: lat=${position.latitude.toStringAsFixed(6)} lng=${position.longitude.toStringAsFixed(6)} accuracy=${position.accuracy}m');
           if (samples.length >= _sampleCount) {
-            completer.complete();
+            graceTimer?.cancel();
+            if (!completer.isCompleted) completer.complete();
+          } else if (samples.length == 1) {
+            // 第一个点收到后，启动宽限定时器
+            graceTimer?.cancel();
+            graceTimer = Timer(_graceAfterFirst, () {
+              print('[定位] 首点宽限期到 (${_graceAfterFirst.inMilliseconds}ms)，已收集 ${samples.length} 个点，直接进入下一步');
+              if (!completer.isCompleted) completer.complete();
+            });
           }
         },
         onError: (e) {
           print('[定位] 流错误: $e');
+          graceTimer?.cancel();
           if (!completer.isCompleted) completer.completeError(e);
         },
         onDone: () {
           print('[定位] 流结束, 共收到 ${samples.length} 个采样');
+          graceTimer?.cancel();
           if (!completer.isCompleted) completer.complete();
         },
         cancelOnError: false,
@@ -135,11 +150,12 @@ class LocationService {
       try {
         await completer.future.timeout(_timeLimit);
       } on TimeoutException {
-        print('[定位] 采样超时 (${_timeLimit.inSeconds}s), 已收集 ${samples.length} 个点');
+        print('[定位] 采样硬超时 (${_timeLimit.inSeconds}s), 已收集 ${samples.length} 个点');
       }
     } catch (e) {
       print('[定位] 采样异常: $e');
     } finally {
+      graceTimer?.cancel();
       await subscription?.cancel();
     }
 
@@ -465,13 +481,24 @@ class EscortLocationService {
     required double lat,
     required double lng,
     String? address,
+    int? dbTaskId,
   }) async {
+    if (dbTaskId == null) {
+      print('[位置上报] ⚠️ 无 DB 任务 ID，跳过');
+      return true;
+    }
     try {
-      await Future.delayed(const Duration(milliseconds: 100));
-      print('📍 上报位置到服务器: escortId=$escortId, lat=$lat, lng=$lng, address=$address');
+      await SupabaseService.instance
+          .from('escort_tasks')
+          .update({
+            'last_location_lat': lat,
+            'last_location_lng': lng,
+          })
+          .eq('id', dbTaskId);
+      print('[位置上报] ✅ 已更新 DB: taskId=$dbTaskId, lat=$lat, lng=$lng');
       return true;
     } catch (e) {
-      print('❌ 上报位置失败: $e');
+      print('[位置上报] ❌ 失败: $e');
       return false;
     }
   }
@@ -482,15 +509,10 @@ class EscortLocationService {
     required int estimatedMinutes,
     required LocationPoint startPoint,
   }) async {
-    try {
-      await Future.delayed(const Duration(milliseconds: 100));
-      print('🚗 护送开始: escortId=$escortId, destination=$destination, estimatedMinutes=$estimatedMinutes');
-      print('   起点: ${startPoint.address}');
-      return true;
-    } catch (e) {
-      print('❌ 上报护送开始失败: $e');
-      return false;
-    }
+    // 护送开始的 DB 写入已在 EscortService.startEscort 中完成。
+    print('🚗 护送开始: escortId=$escortId, destination=$destination, estimatedMinutes=$estimatedMinutes');
+    print('   起点: ${startPoint.address}');
+    return true;
   }
 
   Future<bool> reportEscortEnd({
@@ -498,18 +520,13 @@ class EscortLocationService {
     required String endType,
     LocationPoint? endPoint,
   }) async {
-    try {
-      await Future.delayed(const Duration(milliseconds: 100));
-      print('🏁 护送结束: escortId=$escortId, endType=$endType');
-      if (endPoint != null) {
-        print('   终点: ${endPoint.address}');
-      }
-      print('   轨迹点数量: ${_trackHistory.length}');
-      return true;
-    } catch (e) {
-      print('❌ 上报护送结束失败: $e');
-      return false;
+    // 护送结束的 DB 写入已在 EscortService.completeEscort 中完成。
+    print('🏁 护送结束: escortId=$escortId, endType=$endType');
+    if (endPoint != null) {
+      print('   终点: ${endPoint.address}');
     }
+    print('   轨迹点数量: ${_trackHistory.length}');
+    return true;
   }
 
   Future<bool> reportTimeoutAlert({

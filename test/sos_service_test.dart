@@ -61,15 +61,15 @@ void main() {
       expect(history.length, equals(3));
     });
 
-    test('getEmergencyContacts should return mock contacts', () {
-      final contacts = sosService.getEmergencyContacts();
+    test('getEmergencyContacts should return mock contacts', () async {
+      final contacts = await sosService.getEmergencyContacts();
       expect(contacts, isNotNull);
       expect(contacts, equals(mockContacts));
       expect(contacts.length, equals(3));
     });
 
-    test('getEmergencyContacts should have correct contact data', () {
-      final contacts = sosService.getEmergencyContacts();
+    test('getEmergencyContacts should have correct contact data', () async {
+      final contacts = await sosService.getEmergencyContacts();
       expect(contacts[0]['name'], equals('妈妈'));
       expect(contacts[0]['phone'], equals('13900000001'));
       expect(contacts[1]['name'], equals('爸爸'));

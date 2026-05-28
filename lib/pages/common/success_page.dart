@@ -113,7 +113,7 @@ class _SuccessPageState extends State<SuccessPage> {
             ),
             const SizedBox(height: 8),
             const Text(
-              '紧急联系人已收到你的安全通知',
+              '本次护送已安全结束',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.black54,

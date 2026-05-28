@@ -26,6 +26,9 @@ class EscortService {
       return null;
     }
 
+    // 新护送前清理旧的活跃记录
+    await abandonActiveEscort();
+
     try {
       final response = await SupabaseService.instance
           .from('escort_tasks')
@@ -63,9 +66,11 @@ class EscortService {
       };
 
       if (lastLocation != null) {
-        updateData['last_known_lat'] = lastLocation.latitude;
-        updateData['last_known_lng'] = lastLocation.longitude;
-        updateData['last_known_address'] = lastLocation.address;
+        updateData['last_location_lat'] = lastLocation.latitude;
+        updateData['last_location_lng'] = lastLocation.longitude;
+        if (lastLocation.address != null) {
+          updateData['end_location'] = lastLocation.address;
+        }
       }
 
       await SupabaseService.instance
@@ -74,9 +79,10 @@ class EscortService {
           .eq('id', taskId);
 
       print('[护送DB] ✅ 护送已完成: id=$taskId');
-      _currentTaskId = null;
     } catch (e) {
       print('[护送DB] ❌ 完成护送失败: $e');
+    } finally {
+      _currentTaskId = null;
     }
   }
 
@@ -198,33 +204,27 @@ class EscortService {
     }
   }
 
-  /// 标记当前护送为 SOS 状态
+  /// 标记当前护送涉及 SOS（仅更新位置，SOS 事件已写入 sos_logs 表）
   Future<void> markAsSos({LocationPoint? lastLocation}) async {
     if (_currentTaskId == null) {
-      print('[护送DB] ❌ 没有正在进行的护送任务，无法标记为 SOS');
+      print('[护送DB] ⚠️ 无活跃护送任务，跳过 SOS 标记');
       return;
     }
+    if (lastLocation == null) return;
 
     try {
       final taskId = _currentTaskId!;
-      final updateData = <String, dynamic>{
-        'status': 'sos',
-      };
-
-      if (lastLocation != null) {
-        updateData['last_known_lat'] = lastLocation.latitude;
-        updateData['last_known_lng'] = lastLocation.longitude;
-        updateData['last_known_address'] = lastLocation.address;
-      }
-
       await SupabaseService.instance
           .from('escort_tasks')
-          .update(updateData)
+          .update({
+            'last_location_lat': lastLocation.latitude,
+            'last_location_lng': lastLocation.longitude,
+          })
           .eq('id', taskId);
 
-      print('[护送DB] ✅ 护送已标记为 SOS: id=$taskId');
+      print('[护送DB] ✅ 护送位置已更新（SOS 关联）: id=$taskId');
     } catch (e) {
-      print('[护送DB] ❌ 标记 SOS 失败: $e');
+      print('[护送DB] ❌ SOS 位置更新失败: $e');
     }
   }
 

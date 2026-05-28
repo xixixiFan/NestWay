@@ -30,8 +30,8 @@ void main() {
             .select()
             .limit(1);
         
-        print('✅ Users 查询成功: ${response.data}');
-        expect(response.data, isNotNull);
+        print('✅ Users 查询成功: $response');
+        expect(response, isNotNull);
       } catch (e) {
         print('❌ Users 查询失败: $e');
         fail('数据库连接失败: $e');
@@ -45,14 +45,14 @@ void main() {
             .select()
             .order('sort_order');
         
-        print('✅ Contacts 查询成功: ${response.data}');
-        expect(response.data, isNotNull);
-        print('📊 紧急联系人数量: ${response.data?.length ?? 0}');
-        
+        print('✅ Contacts 查询成功: $response');
+        expect(response, isNotNull);
+        print('📊 紧急联系人数量: ${response.length}');
+
         // 如果有数据，验证数据结构
-        if (response.data != null && response.data!.isNotEmpty) {
-          expect(response.data![0].containsKey('name'), isTrue);
-          expect(response.data![0].containsKey('phone'), isTrue);
+        if (response.isNotEmpty) {
+          expect(response[0].containsKey('name'), isTrue);
+          expect(response[0].containsKey('phone'), isTrue);
         }
       } catch (e) {
         print('❌ Contacts 查询失败: $e');
@@ -69,14 +69,14 @@ void main() {
             .select()
             .order('triggered_at', ascending: false);
         
-        print('✅ SOS logs 查询成功: ${response.data}');
-        expect(response.data, isNotNull);
-        print('📊 SOS日志数量: ${response.data?.length ?? 0}');
-        
+        print('✅ SOS logs 查询成功: $response');
+        expect(response, isNotNull);
+        print('📊 SOS日志数量: ${response.length}');
+
         // 如果有数据，验证数据结构
-        if (response.data != null && response.data!.isNotEmpty) {
-          expect(response.data![0].containsKey('type'), isTrue);
-          expect(response.data![0].containsKey('location_description'), isTrue);
+        if (response.isNotEmpty) {
+          expect(response[0].containsKey('type'), isTrue);
+          expect(response[0].containsKey('location_description'), isTrue);
         }
       } catch (e) {
         print('❌ SOS logs 查询失败: $e');
@@ -196,15 +196,15 @@ void main() {
         final sosLogs = await SupabaseService.instance.from('sos_logs').select();
 
         print('📊 数据库测试数据统计:');
-        print('  - Users: ${users.data?.length ?? 0}');
-        print('  - Contacts: ${contacts.data?.length ?? 0}');
-        print('  - SOS Logs: ${sosLogs.data?.length ?? 0}');
+        print('  - Users: ${users.length}');
+        print('  - Contacts: ${contacts.length}');
+        print('  - SOS Logs: ${sosLogs.length}');
 
-        expect(users.data, isNotNull);
-        
+        expect(users, isNotNull);
+
         // 输出前几条数据用于调试
-        if (users.data != null && users.data!.isNotEmpty) {
-          print('📋 用户数据示例: ${users.data![0]}');
+        if (users.isNotEmpty) {
+          print('📋 用户数据示例: ${users[0]}');
         }
       } catch (e) {
         print('❌ 数据库测试数据检查失败: $e');
@@ -224,12 +224,7 @@ void main() {
             .limit(5);
 
         print('📊 RLS测试结果:');
-        print('  - 返回记录数: ${response.data?.length ?? 0}');
-        
-        if (response.error != null) {
-          print('  - 错误信息: ${response.error!.message}');
-          print('  - 错误详情: ${response.error!.details}');
-        }
+        print('  - 返回记录数: ${response.length}');
 
         print('✅ RLS策略测试完成');
       } catch (e) {

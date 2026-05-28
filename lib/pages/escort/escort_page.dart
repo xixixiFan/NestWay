@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import '../../models/escort_config.dart';
 import '../../routes/app_routes.dart';
 import '../../mock/mock_contacts.dart';
+import '../../config/amap_config.dart';
 import '../../services/location_service.dart';
 import '../../services/escort_service.dart';
 import 'progress_page.dart';
@@ -39,8 +40,6 @@ class EscortPage extends StatefulWidget {
 class _EscortPageState extends State<EscortPage> {
   final TextEditingController _searchController = TextEditingController();
   final EscortLocationService _locationService = EscortLocationService();
-  static const _amapKey = '89ff90f769765ecd5f68e2cb48e283cb';
-
   int _selectedMinutes = 15;
   LocationPoint? _currentLocation;
   bool _isLoadingLocation = false;
@@ -71,8 +70,13 @@ class _EscortPageState extends State<EscortPage> {
   void _onSearchChanged() {
     final query = _searchController.text.trim();
 
-    // 如果用户修改了已选中的内容，清除选中状态
-    if (_selectedPoi != null && query != _selectedPoi!.name) {
+    // 选中的 POI 与当前文本一致 → 不重复搜索
+    if (_selectedPoi != null && query == _selectedPoi!.name) {
+      return;
+    }
+
+    // 用户修改了已选中的内容 → 清除选中状态
+    if (_selectedPoi != null) {
       _selectedPoi = null;
     }
 
@@ -103,8 +107,8 @@ class _EscortPageState extends State<EscortPage> {
 
       final url = Uri.parse(
         'https://restapi.amap.com/v3/place/text'
-        '?key=$_amapKey'
-        '&keywords=$keyword'
+        '?key=$amapApiKey'
+        '&keywords=${Uri.encodeQueryComponent(keyword)}'
         '&types='
         '&offset=8'
         '&page=1'
@@ -166,6 +170,7 @@ class _EscortPageState extends State<EscortPage> {
   }
 
   void _selectPoi(_PoiResult poi) {
+    _debounce?.cancel();
     setState(() {
       _selectedPoi = poi;
       _showSuggestions = false;
@@ -186,13 +191,26 @@ class _EscortPageState extends State<EscortPage> {
       });
     }
 
+    // 同时获取精准定位（含城市名）和护送定位点
+    final preciseResult = await LocationService().getPreciseLocation();
     final location = await _locationService.getCurrentLocation();
 
     if (mounted) {
       setState(() {
         _isLoadingLocation = false;
         if (location != null && location.latitude != 0 && location.longitude != 0) {
-          _currentLocation = location;
+          // 组装更详细地址：城市 + 区/街道
+          final city = preciseResult.city ?? '';
+          final addr = location.address ?? '';
+          final fullAddress = city.isNotEmpty && addr.isNotEmpty
+              ? '$city $addr'
+              : (addr.isNotEmpty ? addr : (city.isNotEmpty ? city : null));
+          _currentLocation = LocationPoint(
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timestamp: location.timestamp,
+            address: fullAddress ?? location.address,
+          );
           _locationError = null;
         } else if (location != null) {
           _currentLocation = location;
@@ -561,6 +579,8 @@ class _EscortPageState extends State<EscortPage> {
                         final config = EscortConfig(
                           escortId: escortId,
                           destination: destination,
+                          destinationLat: _selectedPoi!.lat,
+                          destinationLng: _selectedPoi!.lng,
                           estimatedMinutes: _selectedMinutes,
                           startPoint: _currentLocation!,
                           contacts: mockContacts,

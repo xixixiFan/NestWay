@@ -26,7 +26,6 @@ class AppRoutes {
   static const String profile = '/profile';
 
   static final routes = <String, WidgetBuilder>{
-    home: (context) => const HomePage(),
     login: (context) => const LoginPage(),
     sos: (context) => const SosPage(),
     sosHistory: (context) => const SosHistoryPage(),

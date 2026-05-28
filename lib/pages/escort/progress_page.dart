@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../debug/escort_debug.dart';
 import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
+import '../../services/escort_service.dart';
 import '../common/timeout_page.dart';
 import '../common/success_page.dart';
 
@@ -49,25 +52,30 @@ class _ProgressPageState extends State<ProgressPage> {
     print('[ProgressPage] _startTimer() 被调用，当前: $_remainingMinutes分$_remainingSeconds秒');
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final skip = EscortDebug.skipTimer();
       setState(() {
-        if (_remainingSeconds > 0) {
-          _remainingSeconds--;
-        } else if (_remainingMinutes > 0) {
-          _remainingMinutes--;
-          _remainingSeconds = 59;
-        } else {
-          print('[ProgressPage] 倒计时结束，跳转到 TimeoutPage');
-          _timer?.cancel();
-          _locationTimer?.cancel();
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => TimeoutPage(
-                config: widget.config,
-                lastLocation: _currentLocation,
+        for (int i = 0; i < skip; i++) {
+          if (_remainingSeconds > 0) {
+            _remainingSeconds--;
+          } else if (_remainingMinutes > 0) {
+            _remainingMinutes--;
+            _remainingSeconds = 59;
+          } else {
+            print('[ProgressPage] 倒计时结束，跳转到 TimeoutPage');
+            _timer?.cancel();
+            _locationTimer?.cancel();
+            _locationService.stopTracking();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TimeoutPage(
+                  config: widget.config,
+                  lastLocation: _currentLocation,
+                ),
               ),
-            ),
-          );
+            );
+            return;
+          }
         }
       });
     });
@@ -96,8 +104,208 @@ class _ProgressPageState extends State<ProgressPage> {
         lat: location.latitude,
         lng: location.longitude,
         address: location.address,
+        dbTaskId: EscortService().currentTaskId,
       );
     }
+  }
+
+  /// Haversine 公式计算两点间距离（单位：公里）
+  double _distanceKm(double lat1, double lng1, double lat2, double lng2) {
+    const r = 6371.0;
+    final dLat = _toRad(lat2 - lat1);
+    final dLng = _toRad(lng2 - lng1);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRad(lat1)) * cos(_toRad(lat2)) * sin(dLng / 2) * sin(dLng / 2);
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a));
+  }
+
+  double _toRad(double deg) => deg * pi / 180.0;
+
+  Future<void> _onCheckIn(BuildContext context) async {
+    print('[ProgressPage] 点击安全打卡');
+
+    // 暂停定时器，防止等待定位期间倒计时继续走
+    _timer?.cancel();
+    _locationTimer?.cancel();
+    final wasPaused = _isPaused;
+    _isPaused = true;
+
+    final destLat = widget.config.destinationLat;
+    final destLng = widget.config.destinationLng;
+
+    // 获取当前位置
+    final now = await _locationService.getCurrentLocation();
+    if (!mounted) return;
+
+    // 无目的地坐标或无法定位 → 直接走原流程
+    if (destLat == null || destLng == null ||
+        now == null || now.latitude == 0) {
+      _goToSuccess(now);
+      return;
+    }
+
+    final dist = _distanceKm(now.latitude, now.longitude, destLat, destLng);
+
+    if (dist <= 0.5) {
+      // ≤500m → 你已安全到达
+      _goToSuccess(now);
+    } else {
+      // >500m → 询问确认（用户取消时恢复定时器）
+      _showArrivalConfirm(context, now, dist, wasPaused);
+    }
+  }
+
+  void _goToSuccess(LocationPoint? location) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SuccessPage(
+          config: widget.config,
+          lastLocation: location,
+        ),
+      ),
+    );
+  }
+
+  void _showArrivalConfirm(
+      BuildContext context, LocationPoint location, double distKm, bool wasPaused) {
+    final distText = distKm < 1.0
+        ? '${(distKm * 1000).round()} 米'
+        : '${distKm.toStringAsFixed(1)} 公里';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(28),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF3F0FF),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 拖拽条
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // 距离图标
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF8E1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.location_on_outlined,
+                size: 40,
+                color: Color(0xFFF59E0B),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            const Text(
+              '你似乎还没到达目的地',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            Text(
+              '当前距离目的地约 $distText',
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.black54,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '确认已经安全到达了吗？',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.black54,
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // 确认安全按钮
+            SizedBox(
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _goToSuccess(location);
+                },
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '确认已安全到达',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // 继续护送按钮 — 恢复定时器
+            SizedBox(
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  if (!wasPaused) {
+                    setState(() => _isPaused = false);
+                    _startTimer();
+                    _startLocationTracking();
+                  }
+                },
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '继续护送',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            SizedBox(height: MediaQuery.of(ctx).padding.bottom + 16),
+          ],
+        ),
+      ),
+    );
   }
 
   String _formatPhone(String phone) {
@@ -110,7 +318,50 @@ class _ProgressPageState extends State<ProgressPage> {
   @override
   Widget build(BuildContext context) {
     print('[ProgressPage] build() 被调用，当前: $_remainingMinutes分$_remainingSeconds秒');
-    return Scaffold(
+    return EscortDebugFloatingButton(
+      actions: [
+        DebugAction(
+          label: '直接超时 → TimeoutPage',
+          icon: Icons.timer_off,
+          color: Colors.orange,
+          onTap: () {
+            _timer?.cancel();
+            _locationTimer?.cancel();
+            _locationService.stopTracking();
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TimeoutPage(
+                  config: widget.config,
+                  lastLocation: _currentLocation,
+                ),
+              ),
+            );
+          },
+        ),
+        DebugAction(
+          label: '打卡成功 → SuccessPage',
+          icon: Icons.check_circle,
+          color: Colors.green,
+          onTap: () => _goToSuccess(_currentLocation),
+        ),
+        DebugAction(
+          label: '距离外弹窗 → 确认到达',
+          icon: Icons.location_on,
+          color: Colors.orange,
+          onTap: () => _showArrivalConfirm(
+            context,
+            _currentLocation ?? LocationPoint(
+              latitude: widget.config.startPoint.latitude,
+              longitude: widget.config.startPoint.longitude,
+              timestamp: DateTime.now(),
+            ),
+            1.2,
+            _isPaused,
+          ),
+        ),
+      ],
+      child: Scaffold(
       backgroundColor: const Color(0xFFF3F0FF),
       body: SafeArea(
         child: Column(
@@ -472,18 +723,7 @@ class _ProgressPageState extends State<ProgressPage> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: GestureDetector(
-                    onTap: () {
-                      print('[ProgressPage] 点击安全打卡');
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SuccessPage(
-                            config: widget.config,
-                            lastLocation: _currentLocation,
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: () => _onCheckIn(context),
                     child: Container(
                       height: 54,
                       decoration: BoxDecoration(
@@ -524,6 +764,7 @@ class _ProgressPageState extends State<ProgressPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../routes/app_routes.dart';
 import '../services/auth_provider.dart';
+import '../pages/home/home_page.dart';
+import '../pages/auth/login_page.dart';
 
 class NestWayApp extends StatefulWidget {
   const NestWayApp({super.key});
@@ -57,7 +59,7 @@ class _NestWayAppState extends State<NestWayApp> {
       title: 'NestWay',
       debugShowCheckedModeBanner: false,
       theme: theme,
-      initialRoute: authProvider.isLoggedIn ? AppRoutes.home : AppRoutes.login,
+      home: authProvider.isLoggedIn ? HomePage() : LoginPage(),
       routes: AppRoutes.routes,
     );
   }

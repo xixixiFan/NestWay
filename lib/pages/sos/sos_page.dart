@@ -219,93 +219,84 @@ class _SosPageState extends State<SosPage> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-              if (_lastError != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    _lastError!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 14,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_lastError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _lastError!,
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
                     ),
                   ),
-                ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Center(
-                  child: Column(
+                GestureDetector(
+                  onLongPressStart: (_) => _startLongPress(),
+                  onLongPressEnd: (_) => _cancelLongPress(),
+                  onLongPressCancel: _cancelLongPress,
+                  child: Stack(
                     children: [
-                    GestureDetector(
-                      onLongPressStart: (_) => _startLongPress(),
-                      onLongPressEnd: (_) => _cancelLongPress(),
-                      onLongPressCancel: _cancelLongPress,
-                      child: Stack(
-                        children: [
-                          RiskCard(
-                            color: const Color(0xFFFF6B6B),
-                            title: '紧急报警',
-                            desc: '长按3秒调起拨号盘 110',
-                            icon: Icons.phone,
-                          ),
-                          if (_isLongPressing)
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      CircularProgressIndicator(
-                                        value: _pressProgress,
-                                        strokeWidth: 4,
-                                        color: Colors.white,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        '${(_pressProgress * 100).toInt()}%',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                      const RiskCard(
+                        color: Color(0xFFFF6B6B),
+                        title: '紧急报警',
+                        desc: '长按3秒调起拨号盘 110',
+                        icon: Icons.phone,
+                      ),
+                      if (_isLongPressing)
+                        Positioned.fill(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    value: _pressProgress,
+                                    strokeWidth: 4,
+                                    color: Colors.white,
                                   ),
-                                ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    '${(_pressProgress * 100).toInt()}%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                        ],
-                      ),
-                    ),
-                    RiskCard(
-                      color: const Color(0xFFFFD93D),
-                      title: '共享位置给联系人',
-                      desc: '发送位置 + 求助消息',
-                      icon: Icons.location_on,
-                      onTap: () {
-                        Navigator.pushNamed(context, AppRoutes.sendSosMessage);
-                      },
-                    ),
-                    RiskCard(
-                      color: const Color(0xFF4A90D9),
-                      title: '播放安全视频',
-                      desc: '播放视频/模拟通话',
-                      icon: Icons.play_circle,
-                      onTap: _playAttentionVideo,
-                    ),
-                  ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 40),
-            ],
+                RiskCard(
+                  color: const Color(0xFFFFD93D),
+                  title: '共享位置给联系人',
+                  desc: '发送位置 + 求助消息',
+                  icon: Icons.location_on,
+                  onTap: () {
+                    Navigator.pushNamed(context, AppRoutes.sendSosMessage);
+                  },
+                ),
+                RiskCard(
+                  color: const Color(0xFF4A90D9),
+                  title: '播放安全视频',
+                  desc: '播放视频/模拟通话',
+                  icon: Icons.play_circle,
+                  onTap: _playAttentionVideo,
+                ),
+              ],
+            ),
           ),
         ),
       ),
