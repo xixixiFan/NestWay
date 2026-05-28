@@ -49,7 +49,6 @@ class _NestWayAppState extends State<NestWayApp> {
         title: 'NestWay',
         debugShowCheckedModeBanner: false,
         theme: theme,
-        routes: AppRoutes.routes,
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
     }
