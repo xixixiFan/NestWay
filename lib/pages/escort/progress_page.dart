@@ -6,6 +6,7 @@ import '../../models/escort_config.dart';
 import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
 import '../../services/escort_service.dart';
+import '../../utils/performance_tracer.dart';
 import '../common/timeout_page.dart';
 import '../common/success_page.dart';
 
@@ -91,7 +92,9 @@ class _ProgressPageState extends State<ProgressPage> {
 
   Future<void> _updateCurrentLocation() async {
     print('[ProgressPage] _updateCurrentLocation() 被调用');
-    final location = await _locationService.recordCurrentPosition();
+    final t = PerformanceTracer.instance;
+    final location = await t.traceAuto('progress_update_location',
+        () => _locationService.recordCurrentPosition());
     if (location != null && mounted) {
       print('[ProgressPage] 更新位置: ${location.address}');
       setState(() {
@@ -99,13 +102,14 @@ class _ProgressPageState extends State<ProgressPage> {
       });
       _reportCount++;
       print('[ProgressPage] 已上报位置: $_reportCount次');
-      await _locationService.reportLocationToServer(
-        escortId: widget.config.escortId,
-        lat: location.latitude,
-        lng: location.longitude,
-        address: location.address,
-        dbTaskId: EscortService().currentTaskId,
-      );
+      await t.traceAuto('report_location_to_server',
+          () => _locationService.reportLocationToServer(
+                escortId: widget.config.escortId,
+                lat: location.latitude,
+                lng: location.longitude,
+                address: location.address,
+                dbTaskId: EscortService().currentTaskId,
+              ));
     }
   }
 
@@ -123,7 +127,7 @@ class _ProgressPageState extends State<ProgressPage> {
 
   Future<void> _onCheckIn(BuildContext context) async {
     print('[ProgressPage] 点击安全打卡');
-
+    await PerformanceTracer.instance.trace('progress_checkin_tap', () async {
     // 暂停定时器，防止等待定位期间倒计时继续走
     _timer?.cancel();
     _locationTimer?.cancel();
@@ -153,6 +157,11 @@ class _ProgressPageState extends State<ProgressPage> {
       // >500m → 询问确认（用户取消时恢复定时器）
       _showArrivalConfirm(context, now, dist, wasPaused);
     }
+    }, input: {
+      'destination': widget.config.destination,
+      'dest_lat': widget.config.destinationLat,
+      'dest_lng': widget.config.destinationLng,
+    });
   }
 
   void _goToSuccess(LocationPoint? location) {
@@ -349,16 +358,24 @@ class _ProgressPageState extends State<ProgressPage> {
           label: '距离外弹窗 → 确认到达',
           icon: Icons.location_on,
           color: Colors.orange,
-          onTap: () => _showArrivalConfirm(
-            context,
-            _currentLocation ?? LocationPoint(
-              latitude: widget.config.startPoint.latitude,
-              longitude: widget.config.startPoint.longitude,
-              timestamp: DateTime.now(),
-            ),
-            1.2,
-            _isPaused,
-          ),
+          onTap: () {
+            final loc = _currentLocation;
+            final destLat = widget.config.destinationLat;
+            final destLng = widget.config.destinationLng;
+            final dist = (loc != null && destLat != null && destLng != null)
+                ? _distanceKm(loc.latitude, loc.longitude, destLat, destLng)
+                : 1.2;
+            _showArrivalConfirm(
+              context,
+              loc ?? LocationPoint(
+                latitude: widget.config.startPoint.latitude,
+                longitude: widget.config.startPoint.longitude,
+                timestamp: DateTime.now(),
+              ),
+              dist,
+              _isPaused,
+            );
+          },
         ),
       ],
       child: Scaffold(
