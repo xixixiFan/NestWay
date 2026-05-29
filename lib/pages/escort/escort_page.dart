@@ -51,6 +51,7 @@ class _EscortPageState extends State<EscortPage> {
   bool _isSearching = false;
   Timer? _debounce;
   bool _showSuggestions = false;
+  bool _isStarting = false;
 
   @override
   void initState() {
@@ -568,8 +569,10 @@ class _EscortPageState extends State<EscortPage> {
 
               // 开始护送按钮
               GestureDetector(
-                onTap: _canStart
+                onTap: _canStart && !_isStarting
                     ? () async {
+                        setState(() => _isStarting = true);
+                        try {
                         final escortId =
                             DateTime.now().millisecondsSinceEpoch.toString();
                         await _locationService.startTracking();
@@ -608,6 +611,9 @@ class _EscortPageState extends State<EscortPage> {
                             ),
                           );
                         }
+                        } finally {
+                          if (mounted) setState(() => _isStarting = false);
+                        }
                       }
                     : null,
                 child: Opacity(
@@ -627,11 +633,13 @@ class _EscortPageState extends State<EscortPage> {
                     ),
                     child: Center(
                       child: Text(
-                        _isLoadingLocation
-                            ? '正在获取位置...'
-                            : _selectedPoi == null
-                                ? '请选择目的地'
-                                : '开始护送',
+                        _isStarting
+                            ? '护送启动中...'
+                            : _isLoadingLocation
+                                ? '正在获取位置...'
+                                : _selectedPoi == null
+                                    ? '请选择目的地'
+                                    : '开始护送',
                         style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold),
                       ),
