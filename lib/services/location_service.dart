@@ -122,7 +122,7 @@ class LocationService {
       return LocationResult(errorMessage: '无法获取当前位置，请确认定位服务已开启');
     }
 
-    // 5. Reverse geocode
+    // 4. Reverse geocode
     print('[定位] 最终坐标: lat=${bestPosition.latitude.toStringAsFixed(6)} lng=${bestPosition.longitude.toStringAsFixed(6)}');
     final geoResult = await t.traceAuto('reverse_geocode',
         () => _reverseGeocode(bestPosition.latitude, bestPosition.longitude),
@@ -150,7 +150,7 @@ class LocationService {
     try {
       subscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
+          accuracy: LocationAccuracy.high,
           timeLimit: _timeLimit,
         ),
       ).listen(
@@ -210,7 +210,8 @@ class LocationService {
     print('[定位] 无采样, 回退到单次 getCurrentPosition...');
     try {
       final fallback = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: _timeLimit * 2,
       );
       print('[定位] 单次定位结果: lat=${fallback.latitude.toStringAsFixed(6)} lng=${fallback.longitude.toStringAsFixed(6)} accuracy=${fallback.accuracy}m');
       return fallback;
@@ -253,10 +254,15 @@ class LocationService {
               final addressComponent = regeocode['addressComponent'] as Map<String, dynamic>?;
 
               if (addressComponent != null) {
-                // 提取城市名（去掉"市"字更简洁）
-                // 高德API的city字段可能是String或空List(无城市时)
+                // 高德API的city字段——内地为字符串（如"深圳市"），港澳台为空数组[]
                 final rawCity = addressComponent['city'];
-                city = (rawCity is String ? rawCity : null)?.replaceAll('市', '');
+                city = (rawCity is String && rawCity.isNotEmpty
+                    ? rawCity.replaceAll('市', '')
+                    : null)
+                    // 港澳台等city为空时，降级用province
+                    ?? (addressComponent['province'] is String
+                        ? (addressComponent['province'] as String).replaceAll('市', '')
+                        : null);
 
                 final district = addressComponent['district'] as String? ?? '';
                 final township = addressComponent['township'] as String? ?? '';
@@ -265,9 +271,14 @@ class LocationService {
                 if (district.isNotEmpty) {
                   shortAddress = district;
                   if (township.isNotEmpty && township != district) {
-                    shortAddress = '$district$township';
-                  } else if (street.isNotEmpty) {
-                    shortAddress = '$district$street';
+                    shortAddress = '$shortAddress$township';
+                  }
+                  if (street.isNotEmpty) {
+                    shortAddress = '$shortAddress$street';
+                    final number = addressComponent['streetNumber']?['number'] as String? ?? '';
+                    if (number.isNotEmpty) {
+                      shortAddress = '$shortAddress$number';
+                    }
                   }
                 }
               }
@@ -284,10 +295,7 @@ class LocationService {
             return {'address': shortAddress, 'city': city};
           } else {
             print('[逆地理] ❌ API返回错误: status=${data['status']} info=${data['info']}');
-            // API Key 无效或超限，备用方案
-            final fallback = _generateFallbackAddress(lat, lng);
-            print('[逆地理] 🔄 使用备用地址: $fallback');
-            return {'address': fallback, 'city': null};
+            return await _coordinateFallback(lat, lng);
           }
         } else {
           print('[逆地理] ❌ HTTP错误: statusCode=${response.statusCode}');
@@ -297,76 +305,16 @@ class LocationService {
       }
     } catch (e) {
       print('[逆地理] ❌ 异常: $e (${e.runtimeType})');
-      // 网络异常时使用备用地址
-      final fallback = _generateFallbackAddress(lat, lng);
-      print('[逆地理] 🔄 使用备用地址: $fallback');
-      return {'address': fallback, 'city': null};
+      return await _coordinateFallback(lat, lng);
     }
-    
-    // 最终备用
-    final fallback = _generateFallbackAddress(lat, lng);
-    print('[逆地理] 🔄 最终备用地址: $fallback');
-    return {'address': fallback, 'city': null};
+
+    return await _coordinateFallback(lat, lng);
   }
 
-  /// 根据经纬度生成简化的地址描述（基于常见城市的大致范围）
-  String _generateFallbackAddress(double lat, double lng) {
-    // 根据经纬度判断大致区域（这是一个简化的备用方案）
-    // 纬度范围: 3° ~ 54° (中国)
-    // 经度范围: 73° ~ 135° (中国)
-    
-    // 尝试判断城市
-    String city = '';
-    String district = '';
-    
-    // 广东省大致范围
-    if (lat >= 20.0 && lat <= 25.5 && lng >= 109.0 && lng <= 117.5) {
-      if (lat >= 22.4 && lat <= 22.9 && lng >= 113.7 && lng <= 114.5) {
-        city = '深圳市';
-        if (lat >= 22.4 && lat <= 22.6) district = '南山区';
-        else if (lat >= 22.6 && lat <= 22.8) district = '福田区';
-        else district = '龙岗区';
-      } else if (lat >= 22.9 && lat <= 23.5 && lng >= 112.8 && lng <= 113.5) {
-        city = '广州市';
-        if (lng >= 113.2 && lng <= 113.5) district = '天河区';
-        else if (lng >= 113.0 && lng <= 113.2) district = '越秀区';
-        else district = '白云区';
-      } else {
-        city = '广东省';
-        district = '其他区域';
-      }
-    }
-    // 北京市大致范围
-    else if (lat >= 39.4 && lat <= 41.0 && lng >= 115.4 && lng <= 117.5) {
-      city = '北京市';
-      if (lng >= 116.2 && lng <= 116.5) district = '朝阳区';
-      else if (lng >= 116.1 && lng <= 116.2) district = '东城区';
-      else district = '其他区';
-    }
-    // 上海市大致范围
-    else if (lat >= 30.7 && lat <= 31.5 && lng >= 120.8 && lng <= 122.0) {
-      city = '上海市';
-      if (lng >= 121.4 && lng <= 121.6) district = '黄浦区';
-      else if (lng >= 121.2 && lng <= 121.4) district = '静安区';
-      else district = '浦东新区';
-    }
-    // 默认
-    else {
-      // 返回经纬度（格式化为更易读的形式）
-      final latStr = lat.toStringAsFixed(4);
-      final lngStr = lng.toStringAsFixed(4);
-      return '$latStr, $lngStr';
-    }
-    
-    // 如果能判断出城市，返回城市+区域
-    if (city.isNotEmpty && district.isNotEmpty) {
-      return '$city$district';
-    } else if (city.isNotEmpty) {
-      return city;
-    }
-    
-    // 最后兜底：返回经纬度
-    return '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+  /// 高德 API 失败时的兜底 — 返回坐标
+  Future<Map<String, String?>> _coordinateFallback(double lat, double lng) async {
+    print('[兜底] 高德 API 不可用，返回坐标: lat=$lat lng=$lng');
+    return {'address': '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}', 'city': null};
   }
 
   /// 截取简洁地址：去掉省市区前缀，保留街道级别信息

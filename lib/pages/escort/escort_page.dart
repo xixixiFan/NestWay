@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import '../../models/escort_config.dart';
 import '../../routes/app_routes.dart';
-import '../../mock/mock_contacts.dart';
 import '../../config/amap_config.dart';
 import '../../services/location_service.dart';
 import '../../services/escort_service.dart';
+import '../../services/contacts_provider.dart';
 import '../../utils/performance_tracer.dart';
+import '../../utils/string_utils.dart';
 import 'progress_page.dart';
 
 // 高德 POI 搜索结果
@@ -61,6 +63,7 @@ class _EscortPageState extends State<EscortPage> {
   bool _showDepartureSuggestions = false;
 
   bool _isStarting = false;
+  ContactsProvider? _contactsProvider;
 
   @override
   void initState() {
@@ -68,6 +71,12 @@ class _EscortPageState extends State<EscortPage> {
     _fetchCurrentLocation();
     _searchController.addListener(_onSearchChanged);
     _departureSearchController.addListener(_onDepartureSearchChanged);
+    // 加载真实紧急联系人
+    final cp = context.read<ContactsProvider>();
+    _contactsProvider = cp;
+    if (cp.contacts.isEmpty && !cp.isLoading) {
+      cp.loadContacts();
+    }
   }
 
   @override
@@ -660,70 +669,71 @@ class _EscortPageState extends State<EscortPage> {
               const SizedBox(height: 16),
 
               // 紧急联系人
-              _buildInputCard(
-                title: '紧急联系人',
-                trailing: TextButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.profile),
-                  child: const Text('管理',
-                      style:
-                          TextStyle(color: Colors.black54, fontSize: 12)),
-                ),
-                child: mockContacts.isNotEmpty
-                    ? Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: const Color(0xFFFFE566),
-                            child: CircleAvatar(
-                              radius: 24,
-                              backgroundColor: Colors.teal[300],
-                              child: ClipOval(
-                                child: Image.network(
-                                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
-                                  fit: BoxFit.cover,
-                                  width: 48,
-                                  height: 48,
-                                  errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.person,
-                                      color: Colors.white),
+              Consumer<ContactsProvider>(
+                builder: (_, cp, __) => _buildInputCard(
+                  title: '紧急联系人',
+                  trailing: TextButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.profile),
+                    child: const Text('管理',
+                        style:
+                            TextStyle(color: Colors.black54, fontSize: 12)),
+                  ),
+                  child: cp.contacts.isNotEmpty
+                      ? Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 26,
+                              backgroundColor: const Color(0xFFFFE566),
+                              child: CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Colors.teal[300],
+                                child: Center(
+                                  child: Text(
+                                    (cp.contacts[0]['name'] as String? ?? '?')
+                                        .characters.first,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  mockContacts[0]['name'] as String? ??
-                                      '张美美',
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _formatPhone(mockContacts[0]['phone']
-                                          as String? ??
-                                      '13888888888'),
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600]),
-                                ),
-                              ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    cp.contacts[0]['name'] as String? ?? '',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    formatPhone(cp.contacts[0]['phone']
+                                            as String? ??
+                                        ''),
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey[600]),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          GestureDetector(
-                            onTap: () => Navigator.pushNamed(
-                                context, AppRoutes.profile),
-                            child: const Icon(Icons.settings,
-                                color: Colors.black38, size: 20),
-                          ),
-                        ],
-                      )
-                    : const Text('暂无紧急联系人'),
+                            GestureDetector(
+                              onTap: () => Navigator.pushNamed(
+                                  context, AppRoutes.profile),
+                              child: const Icon(Icons.settings,
+                                  color: Colors.black38, size: 20),
+                            ),
+                          ],
+                        )
+                      : const Text('暂无紧急联系人，请先添加'),
+                ),
               ),
 
               const SizedBox(height: 48),
@@ -757,7 +767,7 @@ class _EscortPageState extends State<EscortPage> {
                           destinationLng: _selectedPoi!.lng,
                           estimatedMinutes: _selectedMinutes,
                           startPoint: departureLoc,
-                          contacts: mockContacts,
+                          contacts: _contactsProvider?.contacts ?? [],
                         );
 
                         await EscortService().startEscort(
@@ -829,13 +839,6 @@ class _EscortPageState extends State<EscortPage> {
         ),
       ),
     );
-  }
-
-  String _formatPhone(String phone) {
-    if (phone.length >= 11) {
-      return '${phone.substring(0, 3)} **** ${phone.substring(7)}';
-    }
-    return phone;
   }
 
   Widget _buildInputCard({

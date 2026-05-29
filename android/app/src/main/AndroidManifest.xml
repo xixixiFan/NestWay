@@ -38,6 +38,9 @@
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
+        <meta-data
+            android:name="com.amap.api.v2.apikey"
+            android:value="3d9947e7022af5de31dc536017da26f2" />
     </application>
 
     <queries>

@@ -7,6 +7,7 @@ import '../../services/location_service.dart';
 import '../../services/sos_service.dart';
 import '../../services/escort_service.dart';
 import '../../utils/performance_tracer.dart';
+import '../../utils/string_utils.dart';
 import '../common/timeout_page.dart';
 import '../common/success_page.dart';
 
@@ -28,6 +29,7 @@ class _ProgressPageState extends State<ProgressPage> {
   final EscortLocationService _locationService = EscortLocationService();
   LocationPoint? _currentLocation;
   int _reportCount = 0;
+  bool _isCheckingIn = false;
 
   @override
   void initState() {
@@ -126,7 +128,10 @@ class _ProgressPageState extends State<ProgressPage> {
   double _toRad(double deg) => deg * pi / 180.0;
 
   Future<void> _onCheckIn(BuildContext context) async {
+    if (_isCheckingIn) return;
+    _isCheckingIn = true;
     print('[ProgressPage] 点击安全打卡');
+    try {
     await PerformanceTracer.instance.trace('progress_checkin_tap', () async {
     // 暂停定时器，防止等待定位期间倒计时继续走
     _timer?.cancel();
@@ -162,6 +167,9 @@ class _ProgressPageState extends State<ProgressPage> {
       'dest_lat': widget.config.destinationLat,
       'dest_lng': widget.config.destinationLng,
     });
+    } finally {
+      _isCheckingIn = false;
+    }
   }
 
   void _goToSuccess(LocationPoint? location) {
@@ -315,13 +323,6 @@ class _ProgressPageState extends State<ProgressPage> {
         ),
       ),
     );
-  }
-
-  String _formatPhone(String phone) {
-    if (phone.length >= 11) {
-      return '${phone.substring(0, 3)} **** ${phone.substring(7)}';
-    }
-    return phone;
   }
 
   @override
@@ -630,7 +631,8 @@ class _ProgressPageState extends State<ProgressPage> {
                   _card(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
+                      child: widget.config.contacts.isNotEmpty
+                          ? Row(
                         children: [
                           CircleAvatar(
                             radius: 30,
@@ -638,19 +640,15 @@ class _ProgressPageState extends State<ProgressPage> {
                             child: CircleAvatar(
                               radius: 28,
                               backgroundColor: Colors.teal[300],
-                              child: ClipOval(
-                                child: Image.network(
-                                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
-                                  fit: BoxFit.cover,
-                                  width: 56,
-                                  height: 56,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return const Icon(
-                                      Icons.person,
-                                      color: Colors.white,
-                                      size: 28,
-                                    );
-                                  },
+                              child: Center(
+                                child: Text(
+                                  (widget.config.contacts[0]['name'] as String? ?? '?')
+                                      .characters.first,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
                             ),
@@ -661,9 +659,7 @@ class _ProgressPageState extends State<ProgressPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  widget.config.contacts.isNotEmpty
-                                      ? widget.config.contacts[0]['name'] as String? ?? '张美美'
-                                      : '张美美',
+                                  widget.config.contacts[0]['name'] as String? ?? '',
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
@@ -671,9 +667,7 @@ class _ProgressPageState extends State<ProgressPage> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  widget.config.contacts.isNotEmpty
-                                      ? _formatPhone(widget.config.contacts[0]['phone'] as String? ?? '13888888888')
-                                      : '138 **** 5678',
+                                  formatPhone(widget.config.contacts[0]['phone'] as String? ?? ''),
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: Colors.grey[600],
@@ -703,7 +697,11 @@ class _ProgressPageState extends State<ProgressPage> {
                             ),
                           ),
                         ],
-                      ),
+                      )
+                          : const Center(
+                              child: Text('暂无紧急联系人',
+                                  style: TextStyle(color: Colors.black45, fontSize: 14)),
+                            ),
                     ),
                   ),
                 ],
