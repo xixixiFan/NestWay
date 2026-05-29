@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../config/amap_config.dart';
+import '../utils/performance_tracer.dart';
 import 'supabase_service.dart';
 
 /// Unified location result returned by [LocationService].
@@ -63,19 +64,23 @@ class LocationService {
   factory LocationService() => _instance;
   LocationService._internal();
 
-  static const _timeLimit = Duration(seconds: 6);
+  static const _timeLimit = Duration(seconds: 5);
   static const _sampleCount = 2;
-  static const _graceAfterFirst = Duration(milliseconds: 2500);
+  static const _graceAfterFirst = Duration(milliseconds: 1500);
+  static const _goodAccuracyMeters = 20;
   static const _amapApiKey = amapApiKey;
   static const _httpTimeout = Duration(seconds: 5);
 
   /// Main entry: get precise location with multi-sampling.
   /// Returns [LocationResult] with address from reverse geocoding.
   Future<LocationResult> getPreciseLocation() async {
+    final t = PerformanceTracer.instance;
     print('[定位] === getPreciseLocation 开始 ===');
 
     // 1. Check if system GPS is enabled
-    final gpsEnabled = await Geolocator.isLocationServiceEnabled();
+    final gpsEnabled = await t.traceAuto('check_gps_enabled',
+        () => Geolocator.isLocationServiceEnabled(),
+        thread: 'platform');
     print('[定位] GPS 服务状态: $gpsEnabled');
     if (!gpsEnabled) {
       print('[定位] ❌ GPS 未开启，返回 needOpenGps');
@@ -86,10 +91,14 @@ class LocationService {
     }
 
     // 2. Check permission
-    LocationPermission permission = await Geolocator.checkPermission();
+    LocationPermission permission = await t.traceAuto('check_permission',
+        () => Geolocator.checkPermission(),
+        thread: 'platform');
     print('[定位] 定位权限: $permission');
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      permission = await t.traceAuto('request_permission',
+          () => Geolocator.requestPermission(),
+          thread: 'platform');
       print('[定位] 请求权限后: $permission');
       if (permission == LocationPermission.denied) {
         print('[定位] ❌ 权限被拒绝');
@@ -104,8 +113,34 @@ class LocationService {
       );
     }
 
-    // 3. Multi-sampling: collect up to N points, pick best accuracy.
-    //    收到第 1 个点后最多再等 2.5s，超时则直接用已有点。
+    // 3. Multi-sampling
+    final bestPosition = await t.traceAuto('gps_multi_sample',
+        () => _samplePosition(t),
+        thread: 'platform');
+
+    if (bestPosition == null) {
+      return LocationResult(errorMessage: '无法获取当前位置，请确认定位服务已开启');
+    }
+
+    // 5. Reverse geocode
+    print('[定位] 最终坐标: lat=${bestPosition.latitude.toStringAsFixed(6)} lng=${bestPosition.longitude.toStringAsFixed(6)}');
+    final geoResult = await t.traceAuto('reverse_geocode',
+        () => _reverseGeocode(bestPosition.latitude, bestPosition.longitude),
+        thread: 'http');
+    print('[定位] 逆地理编码结果: address=${geoResult['address']} city=${geoResult['city']}');
+
+    final result = LocationResult(
+      latitude: bestPosition.latitude,
+      longitude: bestPosition.longitude,
+      accuracy: bestPosition.accuracy,
+      address: geoResult['address'],
+      city: geoResult['city'],
+    );
+    print('[定位] === getPreciseLocation 返回: lat=${result.latitude?.toStringAsFixed(6)} lng=${result.longitude?.toStringAsFixed(6)} accuracy=${result.accuracy}m address="${result.address ?? "(null)"}" city="${result.city ?? "(null)"}" ===');
+    return result;
+  }
+
+  Future<Position?> _samplePosition(PerformanceTracer t) async {
     print('[定位] 开始采样 (目标 $_sampleCount 个点, 首点宽限 ${_graceAfterFirst.inMilliseconds}ms, 硬超时 ${_timeLimit.inSeconds}s)...');
     final samples = <Position>[];
     StreamSubscription<Position>? subscription;
@@ -122,16 +157,22 @@ class LocationService {
         (position) {
           samples.add(position);
           print('[定位]   收到第 ${samples.length} 个采样: lat=${position.latitude.toStringAsFixed(6)} lng=${position.longitude.toStringAsFixed(6)} accuracy=${position.accuracy}m');
+
           if (samples.length >= _sampleCount) {
             graceTimer?.cancel();
             if (!completer.isCompleted) completer.complete();
           } else if (samples.length == 1) {
-            // 第一个点收到后，启动宽限定时器
-            graceTimer?.cancel();
-            graceTimer = Timer(_graceAfterFirst, () {
-              print('[定位] 首点宽限期到 (${_graceAfterFirst.inMilliseconds}ms)，已收集 ${samples.length} 个点，直接进入下一步');
+            if (position.accuracy <= _goodAccuracyMeters) {
+              print('[定位] 首点精度已达标 (${position.accuracy}m ≤ ${_goodAccuracyMeters}m)，跳过后续采样');
+              graceTimer?.cancel();
               if (!completer.isCompleted) completer.complete();
-            });
+            } else {
+              graceTimer?.cancel();
+              graceTimer = Timer(_graceAfterFirst, () {
+                print('[定位] 首点宽限期到 (${_graceAfterFirst.inMilliseconds}ms)，精度 ${position.accuracy}m > ${_goodAccuracyMeters}m，已收集 ${samples.length} 个点');
+                if (!completer.isCompleted) completer.complete();
+              });
+            }
           }
         },
         onError: (e) {
@@ -159,42 +200,24 @@ class LocationService {
       await subscription?.cancel();
     }
 
-    // 4. Pick best sample by accuracy
-    Position? bestPosition;
     if (samples.isNotEmpty) {
       samples.sort((a, b) => (a.accuracy).compareTo(b.accuracy));
-      bestPosition = samples.first;
-      print('[定位] 从 ${samples.length} 个采样中取最优: accuracy=${bestPosition.accuracy}m');
-    } else {
-      print('[定位] 无采样, 回退到单次 getCurrentPosition...');
-      try {
-        bestPosition = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best,
-        );
-        print('[定位] 单次定位结果: lat=${bestPosition.latitude.toStringAsFixed(6)} lng=${bestPosition.longitude.toStringAsFixed(6)} accuracy=${bestPosition.accuracy}m');
-      } catch (e) {
-        print('[定位] ❌ 单次定位也失败: $e');
-        return LocationResult(errorMessage: '无法获取当前位置，请确认定位服务已开启');
-      }
+      final best = samples.first;
+      print('[定位] 从 ${samples.length} 个采样中取最优: accuracy=${best.accuracy}m');
+      return best;
     }
 
-    // 5. Reverse geocode
-    print('[定位] 最终坐标: lat=${bestPosition!.latitude.toStringAsFixed(6)} lng=${bestPosition.longitude.toStringAsFixed(6)}');
-    final geoResult = await _reverseGeocode(
-      bestPosition.latitude,
-      bestPosition.longitude,
-    );
-    print('[定位] 逆地理编码结果: address=${geoResult['address']} city=${geoResult['city']}');
-
-    final result = LocationResult(
-      latitude: bestPosition.latitude,
-      longitude: bestPosition.longitude,
-      accuracy: bestPosition.accuracy,
-      address: geoResult['address'],
-      city: geoResult['city'],
-    );
-    print('[定位] === getPreciseLocation 返回: lat=${result.latitude?.toStringAsFixed(6)} lng=${result.longitude?.toStringAsFixed(6)} accuracy=${result.accuracy}m address="${result.address ?? "(null)"}" city="${result.city ?? "(null)"}" ===');
-    return result;
+    print('[定位] 无采样, 回退到单次 getCurrentPosition...');
+    try {
+      final fallback = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      print('[定位] 单次定位结果: lat=${fallback.latitude.toStringAsFixed(6)} lng=${fallback.longitude.toStringAsFixed(6)} accuracy=${fallback.accuracy}m');
+      return fallback;
+    } catch (e) {
+      print('[定位] ❌ 单次定位也失败: $e');
+      return null;
+    }
   }
 
   Future<Map<String, String?>> _reverseGeocode(double lat, double lng) async {
@@ -409,7 +432,9 @@ class EscortLocationService {
   }
 
   Future<LocationPoint?> getCurrentLocation() async {
-    final result = await _locationService.getPreciseLocation();
+    final t = PerformanceTracer.instance;
+    final result = await t.traceAuto('EscortLocationService.getCurrentLocation',
+        () => _locationService.getPreciseLocation());
 
     if (!result.isSuccess) {
       final fallbackAddr = result.needOpenGps ? '请开启手机定位服务' : (result.errorMessage ?? '定位失败，请重试');
@@ -446,9 +471,11 @@ class EscortLocationService {
   }
 
   Future<LocationPoint?> startTracking() async {
+    final t = PerformanceTracer.instance;
     _isTracking = true;
     _trackHistory.clear();
-    final location = await getCurrentLocation();
+    final location = await t.traceAuto('EscortLocationService.startTracking',
+        () => getCurrentLocation());
     if (location != null) {
       _startPoint = location;
       _trackHistory.add(location);
@@ -458,7 +485,9 @@ class EscortLocationService {
 
   Future<LocationPoint?> recordCurrentPosition() async {
     if (!_isTracking) return null;
-    final location = await getCurrentLocation();
+    final location = await PerformanceTracer.instance
+        .traceAuto('EscortLocationService.recordCurrentPosition',
+            () => getCurrentLocation());
     if (location != null) {
       _trackHistory.add(location);
     }
