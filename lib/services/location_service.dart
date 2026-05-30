@@ -64,9 +64,9 @@ class LocationService {
   factory LocationService() => _instance;
   LocationService._internal();
 
-  static const _timeLimit = Duration(seconds: 5);
+  static const _timeLimit = Duration(seconds: 20);
   static const _sampleCount = 2;
-  static const _graceAfterFirst = Duration(milliseconds: 1500);
+  static const _graceAfterFirst = Duration(milliseconds: 3000);
   static const _goodAccuracyMeters = 20;
   static const _amapApiKey = amapApiKey;
   static const _httpTimeout = Duration(seconds: 5);
@@ -113,26 +113,44 @@ class LocationService {
       );
     }
 
-    // 3. Multi-sampling
+    // 3. Quick cached position (instant, avoids cold-start waiting)
+    Position? cachedPosition;
+    try {
+      cachedPosition = await t.traceAuto('get_last_known',
+          () => Geolocator.getLastKnownPosition(),
+          thread: 'platform');
+      print('[定位] 缓存位置: ${cachedPosition != null ? "lat=${cachedPosition.latitude.toStringAsFixed(6)} lng=${cachedPosition.longitude.toStringAsFixed(6)}" : "无"}');
+    } catch (e) {
+      print('[定位] 获取缓存位置异常: $e');
+    }
+
+    // 4. Multi-sampling for fresh GPS fix
     final bestPosition = await t.traceAuto('gps_multi_sample',
         () => _samplePosition(t),
         thread: 'platform');
 
-    if (bestPosition == null) {
-      return LocationResult(errorMessage: '无法获取当前位置，请确认定位服务已开启');
+    // 5. Fallback chain: fresh sample → cached → error
+    final Position? finalPosition = bestPosition ?? cachedPosition;
+    if (finalPosition == null) {
+      return LocationResult(errorMessage: '无法获取当前位置，请确认定位服务已开启且在室外空旷处重试');
     }
 
-    // 4. Reverse geocode
-    print('[定位] 最终坐标: lat=${bestPosition.latitude.toStringAsFixed(6)} lng=${bestPosition.longitude.toStringAsFixed(6)}');
+    final bool isCached = bestPosition == null && cachedPosition != null;
+    if (isCached) {
+      print('[定位] ⚠️ 使用缓存位置（GPS 采样未返回新鲜数据）');
+    }
+
+    // 6. Reverse geocode
+    print('[定位] 最终坐标: lat=${finalPosition.latitude.toStringAsFixed(6)} lng=${finalPosition.longitude.toStringAsFixed(6)}');
     final geoResult = await t.traceAuto('reverse_geocode',
-        () => _reverseGeocode(bestPosition.latitude, bestPosition.longitude),
+        () => _reverseGeocode(finalPosition.latitude, finalPosition.longitude),
         thread: 'http');
     print('[定位] 逆地理编码结果: address=${geoResult['address']} city=${geoResult['city']}');
 
     final result = LocationResult(
-      latitude: bestPosition.latitude,
-      longitude: bestPosition.longitude,
-      accuracy: bestPosition.accuracy,
+      latitude: finalPosition.latitude,
+      longitude: finalPosition.longitude,
+      accuracy: finalPosition.accuracy,
       address: geoResult['address'],
       city: geoResult['city'],
     );
@@ -210,8 +228,10 @@ class LocationService {
     print('[定位] 无采样, 回退到单次 getCurrentPosition...');
     try {
       final fallback = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: _timeLimit * 2,
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: _timeLimit * 2,
+        ),
       );
       print('[定位] 单次定位结果: lat=${fallback.latitude.toStringAsFixed(6)} lng=${fallback.longitude.toStringAsFixed(6)} accuracy=${fallback.accuracy}m');
       return fallback;
